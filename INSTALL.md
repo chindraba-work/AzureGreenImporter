@@ -15,8 +15,8 @@ On the server for the Zen-Cart store, you need to have:
 - FTP access to the store’s admin directory
 - Access to the store’s admin control panel, specifically `Admin -> Tools -> Install SQL Patches`
 - Direct access to the store’s database. (**Not** using the in-store controls above.) Two options are:
- 1. phpMyAdmin, supplied by the host
- 2. Direct Command-line interface using the `mysql` client program.
+   1. phpMyAdmin, supplied by the host
+   2. Direct Command-line interface using the `mysql` client program.
 
 ### Local computer (by preference, a GNU/Linux system, or VM)
 
