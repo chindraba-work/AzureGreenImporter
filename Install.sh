@@ -10,14 +10,14 @@
 #  which fits within the standard Zen-Cart database system.            #
 #                                                                      #
 #  Copyright © 2019  Chindraba (Ronald Lamoreaux)                      #
-#                    <zenning@chindraba.work>                          #
+#                    <plus_zen@chindraba.work>                         #
 #  - All Rights Reserved                                               #
 #                                                                      #
-#  FixVid is free software; you can redistribute it and/or             #
+#  This software is free software; you can redistribute it and/or      #
 #  modify it under the terms of the GNU General Public License,        #
 #  version 2 only, as published by the Free Software Foundation.       #
 #                                                                      #
-#  FixVid is distributed in the hope that it will be useful,           #
+#  This software is distributed in the hope that it will be useful,    #
 #  but WITHOUT ANY WARRANTY; without even the implied warranty of      #
 #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the       #
 #  GNU General Public License for more details.                        #

@@ -10,3 +10,7 @@
 
 - Added anchor files, `empty.txt` to force the creation of needed directories.
 
+### v1.0.2
+
+- Correct package name in license blocks
+

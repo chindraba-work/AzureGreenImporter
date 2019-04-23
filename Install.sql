@@ -8,14 +8,14 @@
  *  which fits within the standard Zen-Cart database system.           *
  *                                                                     *
  *  Copyright © 2019  Chindraba (Ronald Lamoreaux)                     *
- *                    <zenning@chindraba.work>                         *
+ *                    <plus_zen@chindraba.work>                        *
  *  - All Rights Reserved                                              *
  *                                                                     *
- *  FixVid is free software; you can redistribute it and/or            *
+ *  This software is free software; you can redistribute it and/or     *
  *  modify it under the terms of the GNU General Public License,       *
  *  version 2 only, as published by the Free Software Foundation.      *
  *                                                                     *
- *  FixVid is distributed in the hope that it will be useful,          *
+ *  This software is distributed in the hope that it will be useful,   *
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of     *
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the      *
  *  GNU General Public License for more details.                       *
@@ -30,7 +30,7 @@
  *                                                                     *
  **********************************************************************/
 
--INSERT INTO `PFX_categories`
+INSERT INTO `PFX_categories`
     (`categories_id`, `categories_image`, `parent_id`, `sort_order`, `date_added`, `last_modified`, `categories_status`)
 VALUES
     (5000, NULL, 0, 0, '2019-04-01 02:51:05', NULL, 0),

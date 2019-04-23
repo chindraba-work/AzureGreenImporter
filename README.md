@@ -55,25 +55,34 @@ Version numbers take the form `X.Y.Z` where `X` is the major version, `Y` is the
 
 # Copyright and License
 
-    Copyright © 2018, 2019 Chindraba (Ronald Lamoreaux)
-                           <zenning@chindraba.work>
-    - All Rights Reserved
-
-    AzureGreenImporter is free software; you can redistribute it and/or
-    modify it under the terms of the GNU General Public License,
-    version 2 only, as published by the Free Software Foundation.
-
-    AzureGreenImporter is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the
-          Free Software Foundation, Inc.
-          51 Franklin Street
-          Fifth Floor
-          Boston, MA  02110-1301
-          USA.
+```
+    AzureGreenImporter: Import AzureGreen data into a Zen-Cart store   
+                                                                       
+    This file is part of the AzureGreen data and image importing       
+    system designed to semi-automatically import, and update, the      
+    massive amount of information supplied by AzureGreen in a format   
+    which fits within the standard Zen-Cart database system.           
+                                                                       
+    Copyright © 2019  Chindraba (Ronald Lamoreaux)                     
+                      <plus_zen@chindraba.work>                        
+    - All Rights Reserved                                              
+                                                                       
+    This software is free software; you can redistribute it and/or     
+    modify it under the terms of the GNU General Public License,       
+    version 2 only, as published by the Free Software Foundation.      
+                                                                       
+    This software is distributed in the hope that it will be useful,   
+    but WITHOUT ANY WARRANTY; without even the implied warranty of     
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the      
+    GNU General Public License for more details.                       
+                                                                       
+    You should have received a copy of the GNU General Public License  
+    along with this program; if not, write to the                      
+          Free Software Foundation, Inc.                               
+          51 Franklin Street                                           
+          Fifth Floor                                                  
+          Boston, MA  02110-1301                                       
+          USA.                                                         
+```
 
 [TOP](#contents)
