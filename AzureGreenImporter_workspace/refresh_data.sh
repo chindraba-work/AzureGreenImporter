@@ -30,7 +30,7 @@
 #        Boston, MA  02110-1301                                        #
 #        USA.                                                          #
 #                                                                      #
-#######################################################################/
+########################################################################
 
 data_list='AG_Complete_Files Departments Descriptions Product-Department StockInfo'
 pushd ag_data >/dev/null
