@@ -10,14 +10,14 @@
 #  which fits within the standard Zen-Cart database system.            #
 #                                                                      #
 #  Copyright © 2019  Chindraba (Ronald Lamoreaux)                      #
-#                    <plus_zen@chindraba.work>                         #
+#                    <zenning@chindraba.work>                          #
 #  - All Rights Reserved                                               #
 #                                                                      #
-#  This software is free software; you can redistribute it and/or      #
+#  FixVid is free software; you can redistribute it and/or             #
 #  modify it under the terms of the GNU General Public License,        #
 #  version 2 only, as published by the Free Software Foundation.       #
 #                                                                      #
-#  This software is distributed in the hope that it will be useful,    #
+#  FixVid is distributed in the hope that it will be useful,           #
 #  but WITHOUT ANY WARRANTY; without even the implied warranty of      #
 #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the       #
 #  GNU General Public License for more details.                        #
@@ -32,11 +32,9 @@
 #                                                                      #
 #######################################################################/
 
--[[ $1 ]] || { echo "Usage $0 <database_prefix> <admin_folder_name>"; exit; }
+[[ $1 ]] || { echo "Usage $0 <database_prefix> <admin_folder_name>"; exit; }
 [[ $2 ]] || { echo "Usage $0 <database_prefix> <admin_folder_name>"; exit; }
 perl -pi -e "s/PFX_/$1/g" Install.sql;
-perl -pi -e "s/PFX_/$1/g"
-perl -pi -e "s/PFX_/$1/g"
 mv "public_html/YOUR_ADMIN" "public_html/$2"
 echo ""
 echo "Next steps:"
