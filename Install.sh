@@ -34,7 +34,7 @@
 
 [[ $1 ]] || { echo "Usage $0 <database_prefix> <admin_folder_name>"; exit; }
 [[ $2 ]] || { echo "Usage $0 <database_prefix> <admin_folder_name>"; exit; }
-perl -pi -e "s/PFX_/$1/g" Install.sql;
+perl -pi -e "s/PFX_/$1/g" Install.sql AzureGreenImporter_workspace/*.sql;
 mv "public_html/YOUR_ADMIN" "public_html/$2"
 echo ""
 echo "Next steps:"

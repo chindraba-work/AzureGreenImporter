@@ -44,7 +44,7 @@ Move, or copy, the `AzureGreenImporter_workspace` directory to someplace where y
 
 - The directory will be nearly 1 GB after the first use !
 - Most of the space is used by the image files from AzureGreen
-- The apce requirement will only increase as new products, and images, are added by AzureGreen
+- The space requirement will only increase as new products, and images, are added by AzureGreen
 - The directory can be renamed as you wish
 - The file and folder names, as well as the layout, within the directory _**must**_ remain unchanged
 
