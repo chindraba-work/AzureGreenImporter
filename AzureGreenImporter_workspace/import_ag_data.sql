@@ -93,7 +93,7 @@ SELECT
     '/',
     `prod_image`
   )),
-  IF(`cantsell`=1 OR `discont`=1,0,1)
+  IF(`cantsell`=1,0,1)
 FROM `PFX_ag_complete`;
 
 -- Add the StockInfo listing, overriding previous data
@@ -118,7 +118,7 @@ SELECT
     '/',
     `prod_image`
   )),
-  IF(`cantsell`=1 OR `discont`=1,0,1)
+  IF(`cantsell`=1,0,1)
 FROM `PFX_ag_stockinfo` AS `src`
 ON DUPLICATE KEY UPDATE
   `products_name`=LEFT(`src`.`prod_desc`,64),
@@ -130,7 +130,7 @@ ON DUPLICATE KEY UPDATE
     '/',
     `src`.`prod_image`
   )),
-  `products_status`=IF(`src`.`cantsell`=1 OR `src`.`discont`=1,0,1);
+  `products_status`=IF(`src`.`cantsell`=1,0,1);
 
 -- Add the Descriptions, overriding previous data
 
