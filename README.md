@@ -1,5 +1,15 @@
 # AzureGreenImporter
 
+---
+
+# NOTICE
+
+### Version 1, the current version, will soon be replaced by version 2.
+
+This change was required by discoveries about the "dirtyness" of AzureGreen's data, and the restrictions imposed by some shared hosting platforms.
+
+---
+
 ## Contents
 
 - [Description](#description)

@@ -2,7 +2,11 @@ AzureGreenImporter
 
 Changelog
 
-v1.0.5
+v1.1.1
+
+   * Add notice to README that version 1 will soon be dead
+
+v1.1.0
 
    * Add the prefix conversion to the automated Install script
 
