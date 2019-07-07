@@ -2,11 +2,15 @@
 
 ---
 
-# NOTICE
+# NOTICE:
 
-### Version 1, the current version, will soon be replaced by version 2.
+### The system has been completely changed between v1 and v2 and the two versions are incompatible in all ways.
 
-This change was required by discoveries about the "dirtyness" of AzureGreen's data, and the restrictions imposed by some shared hosting platforms.
+It was found that the data files and image names were significantly more "dirty" than originally thought. This required a reworking of how the data was processed and how the image files were sorted.
+
+It was also discovered that the available options on some shared hosting platforms are significantly tighter than required for this system to work. On key, among many, is the inability to do `LOAD DATA LOCAL INFILE` commands in MySQL/MariaDB. Until such time as this is converted to use fully native PHP code from within the Admin controls of the Zen-Cart store, this system will have to rely on command-line access to the database from a local machine. This can be the database itself, or a local clone of the database.
+
+If switching from v1 to v2, it is safe to ignore all files installed, locally and remotely, as part of v1. The v2 files use unique names intentionally to avoid any cross-contamination. The files created by v1 _may_ need to be copied from their v1 location and renamed to their v2 names. See the `README_UPGRADE.md` file for complete instructions. 
 
 ---
 
