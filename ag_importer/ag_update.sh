@@ -109,6 +109,18 @@
 ########################################################################
 # }}}
 
+function pre_fetch { # {{{
+    # Loads files from a directory, as if they had been downloaded
+    # The source directory name is presumed to be a date: YYYY.MM.DD
+    # The date format will also be used when saving active downloads
+    # and image upload archives (with a time-stamp affixed).
+    src_dir="$1";
+    [[ -d "$dir_stores/$src_dir/" ]] || return
+    cp -rpT "$dir_stores/$src_dir" "$dir_test"
+    pre_load_id="$src_dir"
+    pre_loaded=0;
+}# }}}
+
 function setup { # {{{
     # The root of the directory tree used in the processing and importing of data from AzureGreen
     # This is the current directory unless a path is given as an argument
@@ -166,12 +178,14 @@ function main {
     realpath $1 > /dev/null 2>&1 \
         && setup "$(realpath $1)" \
         || setup "$PWD"
-    # allow for loading old data
+    pre_loaded=0
+    [[ -n $2 ]] && \
+        pre_fetch $2
     # process the images
     # process the data files
     # import the data into the tables
     # clean up
 }
 
-main $1
+main $1 $2
 
