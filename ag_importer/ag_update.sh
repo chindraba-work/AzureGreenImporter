@@ -1,5 +1,5 @@
 #!/bin/bash
- # {{{
+# {{{
 ########################################################################
 #                                                                      #
 #  AzureGreenImporter: Import AzureGreen data into a Zen-Cart store    #
@@ -109,8 +109,63 @@
 ########################################################################
 # }}}
 
+function setup { # {{{
+    # The root of the directory tree used in the processing and importing of data from AzureGreen
+    # This is the current directory unless a path is given as an argument
+    [[ -z $1 ]] \
+        && $dir_root="/srv/arow-dev/importer/importing_tree" \
+        || dir_root="$1"
+    # Create the standing directories, if they do not already exist
+    # Will also force the population of all other directories based on current
+    # AzureGreen resource files
+    mkdir -p $dir_root/{source_{record,latest},{data,pics}_current,_orphans}
+
+    # The most recent version of each file downloaded from AzureGreen
+    dir_active="$dir_root/source_latest"
+
+    # The by-date record of files downloaded from AzureGreen
+    dir_stores="$dir_root/source_record"
+
+    # The utf8 files to load into the database (always kept current)
+    dir_data="$dir_root/data_current"
+
+    # The sorted collection of images on the server
+    dir_pics="$dir_root/pics_current"
+
+    # Images found in zip files that somehow didn't get processed
+    dir_orphan="$dir_root/_orphans"
+
+    # Create the temporary directories used in processing.
+    # These will be deleted when the process ends
+
+    # Initially the last download files, potentially replaced by a new version
+    dir_test="$dir_root/working/source_test"
+    mkdir -p "$dir_test"
+    # If there is a set of files already in use, copy them as the starting point
+    dir_is_empty $dir_active || cp -rpT $dir_active $dir_test
+    # Temporary directory to hold downloads detected as new (md5sum)
+    dir_new="$dir_root/working/source_next"
+    mkdir -p "$dir_new"
+
+    # New versions of the utf8 import files to copy into $dir_data
+    dir_import="$dir_root/working/data_next"
+    mkdir -p "$dir_import"
+
+    # Temporary directory to hold unzipped images
+    dir_extract="$dir_root/working/pics_next/extracts"
+    mkdir -p "$dir_extract"
+    # Temporary directory to hold renamed and sorted images
+    dir_sorted="$dir_root/working/pics_next/sorted"
+    mkdir -p "$dir_sorted"
+    # Temporary directory to hold images detected as new (md5sum)
+    dir_found="$dir_root/working/pics_next/found"
+    mkdir -p "$dir_found"
+} # }}}
+
 function main {
-    # set/switch to the working directory
+    realpath $1 > /dev/null 2>&1 \
+        && setup "$(realpath $1)" \
+        || setup "$PWD"
     # allow for loading old data
     # process the images
     # process the data files
@@ -118,5 +173,5 @@ function main {
     # clean up
 }
 
-main
+main $1
 
