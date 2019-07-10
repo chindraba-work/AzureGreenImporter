@@ -114,16 +114,36 @@ SOURCE_URL="http://www.azuregreenw.com/filesForDownload"
 # The zip files of images
 ARCHIVE_LIST="A B C D EB EP ES F G H I J L M N O R S U V W"
 
+
+function wgetter {
+    echo "wgetter";
+}
+
+
 function extract_images {
     echo "extract_images";
 }
+
 function filter_images {
     echo "filter_images";
 }
 
-function freshen { 
-    echo "freshen"
-}
+function freshen { # {{{
+    # Optionally retrieve the newest file from AzureGreen, compare it to the active version
+    # If it is changed (presumably newer) copy it to the collection of new sources, return true
+    # Return false otherwise
+    src_name="$1"
+    src_url="$2"
+    [[ $pre_loaded ]] || wgetter "$src_url/$src_name"
+    [ -e "$dir_test/$src_name" ] || return 1 
+    [ -e "$dir_active/$src_name" ] && {
+        last_sum="$(md5sum "$dir_active/$src_name" | awk -e '{print $1 }')"
+        test_sum="$(md5sum "$dir_test/$src_name" | awk -e '{print $1}')"
+        [ $test_sum = $last_sum ] && return 1
+    }
+    cp -p "$dir_test/$src_name" "$dir_new/"
+    return 0;
+} # }}}
 
 function freshen_images { # {{{
     # Update and process the image archive files
@@ -132,7 +152,7 @@ function freshen_images { # {{{
     done
 } # }}}
 
-function pre_fetch { # {{{za
+function pre_fetch { # {{{
     # Loads files from a directory, as if they had been downloaded
     # The source directory name is presumed to be a date: YYYY.MM.DD
     # The date format will also be used when saving active downloads
@@ -144,7 +164,7 @@ function pre_fetch { # {{{za
     pre_loaded=0;
 }# }}}
 
-function process_images { # za{{{
+function process_images { # {{{
     freshen_images
     filter_images
     save_images
