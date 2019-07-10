@@ -114,6 +114,10 @@ SOURCE_URL="http://www.azuregreenw.com/filesForDownload"
 # The zip files of images
 ARCHIVE_LIST="A B C D EB EP ES F G H I J L M N O R S U V W"
 
+function check_name {
+    echo "check_name"
+}
+
 function dir_is_empty { # {{{
     # Returns true for an empty directory, false otherwise
     [ -n "$(find "$1" -maxdepth 0 -type d -empty 2>/dev/null)" ]
@@ -195,6 +199,10 @@ function flatten_image_dir { # {{{
     popd >/dev/null
 } # }}}
 
+function keep_larger {
+    echo "keep_larger"
+}
+
 function pre_fetch { # {{{
     # Loads files from a directory, as if they had been downloaded
     # The source directory name is presumed to be a date: YYYY.MM.DD
@@ -270,9 +278,46 @@ function setup { # {{{
     mkdir -p "$dir_found"
 } # }}}
 
-function sort_image {
-    echo "sort_image"
-}
+function sort_image { # {{{
+    # Attempt to match the name of this image with one that already exists. If found, keep the larger
+    # of the two, remove the other.
+    # If no match is found, attempt to create a name without any size suffix and save the image under
+    # that name. The last resort is to save the image under its original name
+    source_name="$1"
+    merge_ext="$2"
+    merge_suffix=${3:-""} # May not exist. Ensure it's at least an empty string
+    merge_prefix="${source_name::2}"
+    mkdir -p "$dir_sorted/$merge_prefix"
+    # Best choice is a direct filename match
+    keep_larger "$source_name" $merge_ext "$dir_sorted/$merge_prefix" '' && return
+    # If there is suppposed to be no suffix, test it anyway
+    [[ -z $merge_suffix ]] && {
+        # Remove the _? pattern suffix from the name if it exists
+        trial_name="${source_name%_?}"
+        # Use that name if it is different, otherwise keep the original name
+        [[ "x$trial_name" = "x" ]] && merge_name="$source_name" || merge_name="$trial_name"
+        # Move the file to the storage area
+        mv -f "$source_name.$merge_ext" "$dir_sorted/$merge_prefix/$merge_name.$merge_ext";
+        return; 
+    }
+    # Next choice is to strip the suffix itself
+    keep_larger "$source_name" $merge_ext "$dir_sorted/$merge_prefix" $merge_suffix && return
+    # Last chance for a suffix is with an underscore leader
+    keep_larger "$source_name" $merge_ext "$dir_sorted/$merge_prefix" "_$merge_suffix" && return
+    # Safest choice for a new name is if there is an underscore leader to the suffix
+    check_name "$source_name" $merge_ext "$dir_sorted/$merge_prefix" "_$merge_suffix" && return
+    # Not so safe, but common in the source archives is the suffix directly on the name
+    # Hopefully, in the cases where this is the case, there will already be an image of that name
+    # without the suffix, and the keep_larger calls above will have deleted or used the image
+    check_name "$source_name" $merge_ext "$dir_sorted/$merge_prefix" "$merge_suffix" && return
+    # Last test is to remove the _? pattern suffix from the name if it exists
+    trial_name="${source_name%_$merge_suffix}"
+    # Use that name if it is different, otherwise keep the original name
+    [[ "x$trial_name" = "x" ]] && merge_name="$source_name" || merge_name="$trial_name"
+    # All else fails, just use the original name and save the image
+    mv -f "$source_name.$merge_ext" "$dir_sorted/$merge_prefix/$merge_name.$merge_ext"
+    return 
+} # }}}
 
 function wgetter { # {{{
     # Retrieves a file from AzureGreen, if it is newer than the local copy
