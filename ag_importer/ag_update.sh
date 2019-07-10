@@ -114,9 +114,10 @@ SOURCE_URL="http://www.azuregreenw.com/filesForDownload"
 # The zip files of images
 ARCHIVE_LIST="A B C D EB EP ES F G H I J L M N O R S U V W"
 
-function dir_is_empty {
-    echo "dir_is_empty";
-}
+function dir_is_empty { # {{{
+    # Returns true for an empty directory, false otherwise
+    [ -n "$(find "$1" -maxdepth 0 -type d -empty 2>/dev/null)" ]
+} # }}}
 
 function extract_images { # {{{
     # Extract the images from the archive and flatten the directories, keeping
