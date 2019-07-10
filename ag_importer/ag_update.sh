@@ -199,7 +199,10 @@ function freshen_annual_sheets {
 }
 
 function freshen_change_sheets {
-    echo "freshen_change_sheets"
+    # Update to current change files, for human consumption only
+    for change_file in $CHANGE_LIST; do
+      freshen "$change_file.xls" "$source_url"
+    done
 }
 
 function freshen_images { # {{{
