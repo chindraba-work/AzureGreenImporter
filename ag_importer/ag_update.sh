@@ -209,9 +209,28 @@ function flatten_image_dir { # {{{
     popd >/dev/null
 } # }}}
 
-function keep_larger {
-    echo "keep_larger"
-}
+function keep_larger { # {{{
+    # Keep the larger of the two files: one currently saved and one under examination
+    # Allows for the possibility that the one being tested has a suffix for its size
+    # when attempting to find the file to compare with.
+    # If there is no comparison file return false
+    # It there is a comparison file, replace it if the new file is larger, delete the 
+    # new file if it is not larger, return true in either case.
+    source_name="$1"
+    target_ext="$2"
+    target_dir="$3"
+    trial_suffix="$4"
+    target_name="${source_name%$trial_suffix}"
+    [[ -e $target_dir/$target_name.$target_ext ]] || return 1
+    target_size=$(du --bytes "$target_dir/$target_name.$target_ext" | cut -f1)
+    source_size=$(du --bytes "$source_name.$target_ext" | cut -f1)
+    if (( target_size < source_size )); then
+        mv -f "$source_name.$target_ext" "$target_dir/$target_name.$target_ext"
+    else
+        rm -f "$source_name.$target_ext"
+    fi
+    return 0
+} # }}}
 
 function pre_fetch { # {{{
     # Loads files from a directory, as if they had been downloaded
