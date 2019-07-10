@@ -126,7 +126,7 @@ function extract_images { # {{{
     arc_name="$1"
     unzip -LL -a -o -d $dir_extract "$dir_new/$arc_name.zip" >/dev/null
     # Attempt to merge the extracted files
-    merge_images $dir_extract
+    flatten_image_dir $dir_extract
     dir_is_empty $dir_extract || cp -rT $dir_extract $dir_orphan
     rm -rf "$dir_extract"
 } # }}}
@@ -159,9 +159,41 @@ function freshen_images { # {{{
     done
 } # }}}
 
-function merge_images {
-    echo "merge_images";
-}
+function flatten_image_dir { # {{{
+    # Find all the files, including in zip files and subdirectories
+    # and attempt to merge each one into a sorted directory tree
+    source_dir="$1"
+    dir_trap='.+[[:space:]][tz]$'
+    [[ -n $2 ]] && merge_suffix="$2" || merge_suffix="";
+    mkdir -p "$dir_sorted"
+    pushd "$source_dir" >/dev/null
+    # Search for, and extract, any zip files included in the archive
+    find . -maxdepth 1 -type f -name "*.zip" | while read zip_path; do
+        zip_file="${zip_path##*/}"
+        zip_name="${zip_file%.zip}"
+        unzip -a -o -j -LL "$zip_name" >/dev/null
+        rm -f "$zip_file"
+    done
+    # Remove Window thumbnail cache files
+    find . -iname thumbs.db -delete
+    # Process remaining files, hopefully all images
+    for pic_path in *; do
+        [[ -f $pic_path ]] || continue
+        pic_file="${pic_path##*/}"
+        pic_ext="${pic_file##*.}"
+        pic_name="${pic_file%.$pic_ext}"
+        sort_image "$pic_name" $pic_ext "$merge_suffix"
+    done
+    # Check into any subdirectories, apply the same process again
+    find . -type d | while read dir_path; do
+        dir="${dir_path##*/}"
+        # Only process directories named like "* z" or "* t"
+        [[ "$dir" =~ $dir_trap ]] || continue
+        flatten_image_dir "$dir" "${dir: -1}"
+        dir_is_empty "$dir" && { rmdir "$dir" || : ; } || mv "$dir" "$dir_orphan";
+    done
+    popd >/dev/null
+} # }}}
 
 function pre_fetch { # {{{
     # Loads files from a directory, as if they had been downloaded
@@ -237,6 +269,10 @@ function setup { # {{{
     dir_found="$dir_root/working/pics_next/found"
     mkdir -p "$dir_found"
 } # }}}
+
+function sort_image {
+    echo "sort_image"
+}
 
 function wgetter { # {{{
     # Retrieves a file from AzureGreen, if it is newer than the local copy
