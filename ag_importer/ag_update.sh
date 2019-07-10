@@ -115,9 +115,11 @@ SOURCE_URL="http://www.azuregreenw.com/filesForDownload"
 ARCHIVE_LIST="A B C D EB EP ES F G H I J L M N O R S U V W"
 
 
-function wgetter {
-    echo "wgetter";
-}
+function wgetter { # {{{
+    # Retrieves a file from AzureGreen, if it is newer than the local copy
+    target="$1"
+    wget --directory-prefix=$dir_test --timestamping --no-if-modified-since $target
+} # }}}
 
 
 function extract_images {
