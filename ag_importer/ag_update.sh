@@ -113,6 +113,9 @@
 SOURCE_URL="http://www.azuregreenw.com/filesForDownload"
 # The zip files of images
 ARCHIVE_LIST="A B C D EB EP ES F G H I J L M N O R S U V W"
+# The range of years for which complete Excel sheets are available
+YEAR_FIRST="2018"
+YEAR_LAST="$(date --utc +%Y)"
 
 function check_name { # {{{
     # Attempt to remove a size suffix. On success save the renamed image in the
@@ -189,7 +192,10 @@ function freshen { # {{{
 } # }}}
 
 function freshen_annual_sheets {
-    echo "freshen_annual_sheets"
+    # Update the annual master change files, for human comsumption only
+    for annual_file in $(seq $YEAR_FIRST $YEAR_LAST); do
+        freshen "$annual_file master updates.xlsx" "$source_url"
+    done
 }
 
 function freshen_change_sheets {
