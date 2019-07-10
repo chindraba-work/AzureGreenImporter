@@ -114,17 +114,21 @@ SOURCE_URL="http://www.azuregreenw.com/filesForDownload"
 # The zip files of images
 ARCHIVE_LIST="A B C D EB EP ES F G H I J L M N O R S U V W"
 
-
-function wgetter { # {{{
-    # Retrieves a file from AzureGreen, if it is newer than the local copy
-    target="$1"
-    wget --directory-prefix=$dir_test --timestamping --no-if-modified-since $target
-} # }}}
-
-
-function extract_images {
-    echo "extract_images";
+function dir_is_empty {
+    echo "dir_is_empty";
 }
+
+function extract_images { # {{{
+    # Extract the images from the archive and flatten the directories, keeping
+    # only the largest files (presuming largest dimensioned version of the image)
+    mkdir -p "$dir_extract"
+    arc_name="$1"
+    unzip -LL -a -o -d $dir_extract "$dir_new/$arc_name.zip" >/dev/null
+    # Attempt to merge the extracted files
+    merge_images $dir_extract
+    dir_is_empty $dir_extract || cp -rT $dir_extract $dir_orphan
+    rm -rf "$dir_extract"
+} # }}}
 
 function filter_images {
     echo "filter_images";
@@ -153,6 +157,10 @@ function freshen_images { # {{{
       freshen "$data_file.zip" "$SOURCE_URL" && extract_images $data_file
     done
 } # }}}
+
+function merge_images {
+    echo "merge_images";
+}
 
 function pre_fetch { # {{{
     # Loads files from a directory, as if they had been downloaded
@@ -227,6 +235,12 @@ function setup { # {{{
     # Temporary directory to hold images detected as new (md5sum)
     dir_found="$dir_root/working/pics_next/found"
     mkdir -p "$dir_found"
+} # }}}
+
+function wgetter { # {{{
+    # Retrieves a file from AzureGreen, if it is newer than the local copy
+    target="$1"
+    wget --directory-prefix=$dir_test --timestamping --no-if-modified-since $target
 } # }}}
 
 function main {
