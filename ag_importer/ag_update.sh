@@ -114,9 +114,19 @@ SOURCE_URL="http://www.azuregreenw.com/filesForDownload"
 # The zip files of images
 ARCHIVE_LIST="A B C D EB EP ES F G H I J L M N O R S U V W"
 
-function check_name {
-    echo "check_name"
-}
+function check_name { # {{{
+    # Attempt to remove a size suffix. On success save the renamed image in the
+    # sorted collection and return true. Return false otherwise
+    source_name="$1"
+    target_ext="$2"
+    target_dir="$3"
+    [[ -n $4 ]] || return 1
+    trial_suffix="$4"
+    target_name="${source_name%$trial_suffix}"
+    [[ "$source_name" = "$target_name" ]] && return 1
+    mv -f "$source_name.$target_ext" "$target_dir/$target_name.$target_ext"
+    return 0
+} # }}}
 
 function dir_is_empty { # {{{
     # Returns true for an empty directory, false otherwise
