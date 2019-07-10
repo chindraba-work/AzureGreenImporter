@@ -188,6 +188,14 @@ function freshen { # {{{
     return 0;
 } # }}}
 
+function freshen_annual_sheets {
+    echo "freshen_annual_sheets"
+}
+
+function freshen_change_sheets {
+    echo "freshen_change_sheets"
+}
+
 function freshen_images { # {{{
     # Update and process the image archive files
     for data_file in $ARCHIVE_LIST; do
@@ -272,6 +280,12 @@ function process_images { # {{{
     store_new_images 
 } # }}}
 
+function process_spreadsheets {
+    freshen_annual_sheets
+    freshen_change_sheets
+    store_spreadsheets
+}
+
 function store_new_images { # {{{
     dir_is_empty $dir_found && return
     cp -rpT "$dir_found" "$dir_pics"
@@ -281,6 +295,10 @@ function store_new_images { # {{{
     popd >/dev/null
     rm -rf "$dir_found"
 } # }}}
+
+function store_spreadsheets {
+    echo "store_spreadsheets"
+}
 
 function setup { # {{{
     # The root of the directory tree used in the processing and importing of data from AzureGreen
@@ -391,6 +409,7 @@ function main {
         pre_fetch $2
     process_images
     # process the data files
+    process_spreadsheets
     # import the data into the tables
     # clean up
 }
