@@ -145,9 +145,31 @@ function extract_images { # {{{
     rm -rf "$dir_extract"
 } # }}}
 
-function filter_images {
-    echo "filter_images";
-}
+function filter_new_images { # {{{
+    # Compare all the newly sorted images with same-named ones from the active set
+    # A different hash is presumed to mean it is a new image, hopefully better than
+    # the older one
+    # All images found to be new, or presumed new, are moved to a staging area
+    # All remaining images are discarded
+    mkdir -p "$dir_found"
+    pushd $dir_sorted > /dev/null
+    find . -type d -name "??"| while read prefix_path; do
+        prefix="${prefix_path##*/}"
+        [[ "$prefix" = "." ]] && continue
+        pushd "$prefix" > /dev/null
+        find . -type f | while read pic_path; do
+            pic="${pic_path##*/}"
+            [[ -s "$dir_pics/$prefix/$pic" ]] && {
+                test_sum="$(md5sum "$pic" | awk -e '{print $1}')"
+                last_sum="$(md5sum "$dir_pics/$prefix/$pic" | awk -e '{print $1 }')"
+                [[ $test_sum = $last_sum ]];
+            } || { mkdir -p "$dir_found/$prefix"; mv -f "$pic" "$dir_found/$prefix/$pic"; }
+        done
+        popd > /dev/null
+        rm -rf "$prefix"
+    done
+    popd > /dev/null
+} # }}}
 
 function freshen { # {{{
     # Optionally retrieve the newest file from AzureGreen, compare it to the active version
@@ -246,7 +268,7 @@ function pre_fetch { # {{{
 
 function process_images { # {{{
     freshen_images
-    filter_images
+    filter_new_images
     save_images
 } # }}}
 
