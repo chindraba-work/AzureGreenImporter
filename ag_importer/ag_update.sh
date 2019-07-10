@@ -269,12 +269,18 @@ function pre_fetch { # {{{
 function process_images { # {{{
     freshen_images
     filter_new_images
-    save_images
+    store_new_images 
 } # }}}
 
-function save_images {
-    echo "save_images";
-}
+function store_new_images { # {{{
+    dir_is_empty $dir_found && return
+    cp -rpT "$dir_found" "$dir_pics"
+    pushd $dir_found > /dev/null
+    [ $pre_loaded ] && arc_date="$pre_load_id" || arc_date="$dir_date"
+    tar --create --recursive --gzip --no-acls --no-selinux --no-xattrs --file="$dir_stores/new_images_$arc_date.tar.gz" *
+    popd >/dev/null
+    rm -rf "$dir_found"
+} # }}}
 
 function setup { # {{{
     # The root of the directory tree used in the processing and importing of data from AzureGreen
