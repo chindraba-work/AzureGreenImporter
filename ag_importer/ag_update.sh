@@ -109,7 +109,30 @@
 ########################################################################
 # }}}
 
-function pre_fetch { # {{{
+# The web resource to download from
+SOURCE_URL="http://www.azuregreenw.com/filesForDownload"
+# The zip files of images
+ARCHIVE_LIST="A B C D EB EP ES F G H I J L M N O R S U V W"
+
+function extract_images {
+    echo "extract_images";
+}
+function filter_images {
+    echo "filter_images";
+}
+
+function freshen { 
+    echo "freshen"
+}
+
+function freshen_images { # {{{
+    # Update and process the image archive files
+    for data_file in $ARCHIVE_LIST; do
+      freshen "$data_file.zip" "$SOURCE_URL" && extract_images $data_file
+    done
+} # }}}
+
+function pre_fetch { # {{{za
     # Loads files from a directory, as if they had been downloaded
     # The source directory name is presumed to be a date: YYYY.MM.DD
     # The date format will also be used when saving active downloads
@@ -120,6 +143,16 @@ function pre_fetch { # {{{
     pre_load_id="$src_dir"
     pre_loaded=0;
 }# }}}
+
+function process_images { # za{{{
+    freshen_images
+    filter_images
+    save_images
+} # }}}
+
+function save_images {
+    echo "save_images";
+}
 
 function setup { # {{{
     # The root of the directory tree used in the processing and importing of data from AzureGreen
@@ -181,7 +214,7 @@ function main {
     pre_loaded=0
     [[ -n $2 ]] && \
         pre_fetch $2
-    # process the images
+    process_images
     # process the data files
     # import the data into the tables
     # clean up
