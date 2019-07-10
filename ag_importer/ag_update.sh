@@ -116,6 +116,8 @@ ARCHIVE_LIST="A B C D EB EP ES F G H I J L M N O R S U V W"
 # The range of years for which complete Excel sheets are available
 YEAR_FIRST="2018"
 YEAR_LAST="$(date --utc +%Y)"
+# The Excel sheets showing cummulative data, useful for user intervension
+CHANGE_LIST="changes isbn"
 
 function check_name { # {{{
     # Attempt to remove a size suffix. On success save the renamed image in the
