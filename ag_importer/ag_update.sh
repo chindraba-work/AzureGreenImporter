@@ -118,6 +118,8 @@ YEAR_FIRST="2018"
 YEAR_LAST="$(date --utc +%Y)"
 # The Excel sheets showing cummulative data, useful for user intervension
 CHANGE_LIST="changes isbn"
+# The regularly updated CSV files, most of the data comes from here
+PRODUCT_DATA_LIST="Descriptions StockInfo Departments Product-Department AG_Complete_Files"
 
 function check_name { # {{{
     # Attempt to remove a size suffix. On success save the renamed image in the
@@ -176,6 +178,10 @@ function filter_new_images { # {{{
     popd > /dev/null
 } # }}}
 
+function fix_charset {
+    echo "fix_charset"
+}
+
 function freshen { # {{{
     # Optionally retrieve the newest file from AzureGreen, compare it to the active version
     # If it is changed (presumably newer) copy it to the collection of new sources, return true
@@ -193,24 +199,32 @@ function freshen { # {{{
     return 0;
 } # }}}
 
-function freshen_annual_sheets {
+function freshen_annual_sheets { # {{{
     # Update the annual master change files, for human comsumption only
     for annual_file in $(seq $YEAR_FIRST $YEAR_LAST); do
         freshen "$annual_file master updates.xlsx" "$source_url"
     done
-}
+} # }}}
 
-function freshen_change_sheets {
+function freshen_change_sheets { # {{{
     # Update to current change files, for human consumption only
     for change_file in $CHANGE_LIST; do
       freshen "$change_file.xls" "$source_url"
     done
-}
+} # }}}
 
 function freshen_images { # {{{
     # Update and process the image archive files
     for data_file in $ARCHIVE_LIST; do
       freshen "$data_file.zip" "$SOURCE_URL" && extract_images $data_file
+    done
+} # }}}
+
+function freshen_product_data { # {{{
+    # Update and convert the stock information files
+    mkdir -p "$dir_import"
+    for data_file in $PRODUCT_DATA_LIST; do
+        freshen "$data_file.csv" "$source_url/dailyFiles" && fix_charset $data_file
     done
 } # }}}
 
@@ -291,11 +305,10 @@ function process_images { # {{{
     store_new_images 
 } # }}}
 
-function process_spreadsheets {
+function process_spreadsheets { # {{{
     freshen_annual_sheets
     freshen_change_sheets
-    store_spreadsheets
-}
+} # }}}
 
 function store_new_images { # {{{
     dir_is_empty $dir_found && return
@@ -306,10 +319,6 @@ function store_new_images { # {{{
     popd >/dev/null
     rm -rf "$dir_found"
 } # }}}
-
-function store_spreadsheets {
-    echo "store_spreadsheets"
-}
 
 function setup { # {{{
     # The root of the directory tree used in the processing and importing of data from AzureGreen
@@ -419,6 +428,7 @@ function main {
     [[ -n $2 ]] && \
         pre_fetch $2
     process_images
+    freshen_product_data 
     # process the data files
     process_spreadsheets
     # import the data into the tables
