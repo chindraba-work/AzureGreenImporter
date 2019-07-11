@@ -317,6 +317,19 @@ function process_spreadsheets { # {{{
     freshen_change_sheets
 } # }}}
 
+function save_sources { # {{{
+    # Copy new source files to the active set and
+    # Save new files in the storage under the current date
+    dir_is_empty $dir_new && return
+    cp -fp "$dir_new"/* "$dir_active"
+    [ $pre_loaded ] || {
+      mkdir -p "$dir_stores/$dir_date"
+      cp -p "$dir_new"/* "$dir_stores/$dir_date"
+    }
+    rm -rf "$dir_new"
+    rm -rf "$dir_test"
+} # }}}
+
 function store_new_images { # {{{
     dir_is_empty $dir_found && return
     cp -rpT "$dir_found" "$dir_pics"
@@ -437,6 +450,7 @@ function main {
     process_images
     freshen_product_data 
     process_spreadsheets
+    save_sources
     # import the data into the tables
     # clean up
 }
