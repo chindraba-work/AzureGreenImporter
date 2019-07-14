@@ -107,6 +107,12 @@
 #                           source_next if new                         #
 ########################################################################
 
+# Dates for the database items
+#  The base date for "pre-existing" products and categories when pre-loading
+DB_ADD_DATE='2018-10-31 21:13:08'
+#  The date available, presumed to be now, changed when pre-loading
+DB_NEW_DATE="$(date --utc +%F%_9T)"
+
 # Database access information 
 STORE_DB_NAME=''
 STORE_DB_USER=''
@@ -115,6 +121,7 @@ STORE_DB_PASS=''
 
 # Find the current date, for when creating a record of new downloads
 NOW_DATE="$(date --utc +%Y.%m.%d)"
+# Find the timestamp for database patch file names
 PATCH_DATE="$(date --utc +%Y.%m.%d-%H.%M.%s)"
 
 # The web resource to download from
@@ -469,6 +476,9 @@ function update_database {
     done
     echo "Importing data into the database."
     pushd $dir_data > /dev/null
+    [ $pre_loaded ] && DB_NEW_DATE="$(echo $pre_load_id | perl -pe 's/\./-/g')"' 21:13:08'
+    [ $pre_loaded ] || DB_ADD_DATE="$DB_NEW_DATE"
+    echo "'"$DB_ADD_DATE"','"$DB_NEW_DATE"'" > db_import-control_dates.sql
     mysql -u $STORE_DB_USER -p$STORE_DB_PASS -D $STORE_DB_NAME < "$code_path/ag_import.sql" > "$dir_stores/inventory_patch-$PATCH_DATE.sql"
     popd > /dev/null
     cp -p "$dir_stores/inventory_patch-$PATCH_DATE.sql" "$dir_data"

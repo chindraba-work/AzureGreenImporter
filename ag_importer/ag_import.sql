@@ -32,6 +32,7 @@
 ##################################################################### */
 -- }}}
 
+-- Instructions {{{
 -- To use this it is necessary to have a copy/backup from the live server
 -- of the following tables:
 --     categories
@@ -48,9 +49,45 @@
 -- The site may have a prefix on the table names, that is not handled
 -- here. The Import SQL Patch expects table names to NOT have that on
 -- the table names and will add it to them when it executes the script.
+-- }}}
 
--- Setup the work area
+-- Setup the work area {{{
+-- Table for control dates {{{
+DROP TEMPORARY TABLE IF EXISTS `staging_control_dates`;
+CREATE TEMPORARY TABLE `staging_control_dates` (
+    `add_date` DATETIME NOT NULL DEFAULT '2018-10-31 21:13:08',
+    `new_date` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP 
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4;
+-- }}}
 
+-- Read the control dates in control_dates.csv {{{
+LOAD DATA LOCAL
+    INFILE './db_import-control_dates.csv'
+INTO TABLE `staging_control_dates`
+    FIELDS TERMINATED BY ',' 
+    OPTIONALLY ENCLOSED BY '"' 
+    LINES TERMINATED BY '\n';
+-- }}}
+
+-- Set the global control dates for later use {{{
+-- add_date will be used for the 'created' type fields in the tables
+-- new_date will be used for data_available on new products.
+--   if all cases, the 'modified' type fields will be untouched, allowing
+--   the store to create/update those as normal. Will serve as a flag here
+--   indicating that the store (under admin control) made changes to the 
+--   data, making that record 'untouchable' for updates to names and other
+--   description-type information. 
+SELECT
+    @SCRIPT_ADD_DATE:=`add_date`,
+    @SCRIPT_NEW_DATE:=`new_date`
+FROM `staging_control_dates`;
+-- }}}
+
+-- TODO: Add the creation of db_import-control_dates.csv to the Bash script.
+--       Only needed if there is a pre-load happening, so that the date on
+--       the pre-load will match the "new" date for new entries in the data
+--       Could be useful, as well, to customize the "add" date for entries.
+-- }}}
 
 -- Import category data
 --    clone existing data [staging_categories_current]
