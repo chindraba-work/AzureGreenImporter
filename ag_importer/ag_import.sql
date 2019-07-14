@@ -114,6 +114,30 @@ WHERE `language_id`=1
 ORDER BY `parent_id`,`categories_name`;
 -- }}}
 --    read raw data from CSV file [staging_categories_ag {db_import-departments.csv}]
+-- The table to read the CSV into {{{
+DROP TABLE IF EXISTS `staging_categories_ag`;
+CREATE TABLE `staging_categories_ag` (
+    `dept_name`  VARCHAR(255) NOT NULL,
+    `dept_code`  INT(11) NOT NULL,
+    `dept_deep`  INT(11) NOT NULL,
+    `dept_show`  TINYINT(1) NOT NULL DEFAULT 1,
+    `parent_id`  INT(11) NOT NULL DEFAULT 0,
+    INDEX (`dept_code`),
+    INDEX (`parent_id`)
+) Engine=MyISAM DEFAULT CHARSET=utf8mb4;
+-- }}}
+-- Read the AzureGreen data file {{{
+LOAD DATA LOCAL
+    INFILE 'db_import-departments.csv'
+INTO TABLE `staging_categories_ag`
+    FIELDS TERMINATED BY ','
+    OPTIONALLY ENCLOSED BY '"'
+    LINES TERMINATED BY '\n'
+    IGNORE 1 LINES;
+-- Do some cleanup of AzureGreen data
+DELETE FROM `staging_categories_ag`
+WHERE `dept_code` < 0;
+-- }}}
 --    convert data to Zen-Cart standards [staging_categories_import]
 --    mark dropped categories as inactive
 --    remove unchanged categories from _import
