@@ -91,6 +91,28 @@ FROM `staging_control_dates`;
 
 -- Import category data
 --    clone existing data [staging_categories_current]
+-- Convenience view for current data {{{
+CREATE OR REPLACE VIEW `staging_categories_live` AS
+SELECT
+    `categories_id`,
+    `categories_image`,
+    `parent_id`,
+    `date_added`,
+    `last_modified`,
+    `categories_status`,
+    `categories_name`,
+    `categories_description`,
+    `metatags_title`,
+    `metatags_keywords`,
+    `metatags_description`
+FROM `categories`
+LEFT OUTER JOIN `categories_description`
+    USING (`categories_id`)
+LEFT OUTER JOIN `meta_tags_categories_description`
+    USING (`categories_id`,`language_id`)
+WHERE `language_id`=1
+ORDER BY `parent_id`,`categories_name`;
+-- }}}
 --    read raw data from CSV file [staging_categories_ag {db_import-departments.csv}]
 --    convert data to Zen-Cart standards [staging_categories_import]
 --    mark dropped categories as inactive
