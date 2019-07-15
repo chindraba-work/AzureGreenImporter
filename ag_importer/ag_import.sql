@@ -116,7 +116,7 @@ ORDER BY `parent_id`,`categories_name`;
 --    read raw data from CSV file [staging_categories_ag {db_import-departments.csv}]
 -- The table to read the CSV into {{{
 DROP TABLE IF EXISTS `staging_categories_ag`;
-CREATE TABLE `staging_categories_ag` (
+CREATE TEMPORARY TABLE `staging_categories_ag` (
     `dept_name`  VARCHAR(255) NOT NULL,
     `dept_code`  INT(11) NOT NULL,
     `dept_deep`  INT(11) NOT NULL,
@@ -139,6 +139,41 @@ DELETE FROM `staging_categories_ag`
 WHERE `dept_code` < 0;
 -- }}}
 --    convert data to Zen-Cart standards [staging_categories_import]
+-- Table for applying Zen-Cart rules to the categories data {{{
+DROP TABLE IF EXISTS `staging_categories_import`;
+CREATE TEMPORARY TABLE `staging_categories_import` (
+    `categories_id`           INT(11) NOT NULL,
+    `parent_id`               INT(11) NOT NULL,
+    `categories_name`         VARCHAR(32),
+    `categories_description`  TEXT,
+    `categories_status`       TINYINT(1) NOT NULL DEFAULT 1,
+    `metatags_title`          VARCHAR(255) NOT NULL DEFAULT '',
+    `metatags_keywords`       TEXT DEFAULT NULL,
+    `metatags_description`    TEXT DEFAULT NULL
+) Engine=MyISAM DEFAULT CHARSET=utf8mb4;
+-- }}}
+-- Convert the data to Zen-Cart rules {{{
+INSERT INTO `staging_categories_import` (
+    `categories_id`,
+    `parent_id`,
+    `categories_name`,
+    `categories_description`,
+    `categories_status`,
+    `metatags_title`,
+    `metatags_keywords`,
+    `metatags_description`
+) SELECT
+    `dept_code`,
+    `parent_id`,
+    LEFT(`dept_name`,32),
+    `dept_name`,
+    `dept_show`,
+    `dept_name`,
+    `dept_name`,
+    `dept_name`
+FROM `staging_categories_ag`
+ORDER BY `dept_deep`,`parent_id`,`dept_code`;
+-- }}}
 --    mark dropped categories as inactive
 --    remove unchanged categories from _import
 --    filter new categories from _import [staging_categories_new]
