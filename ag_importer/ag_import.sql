@@ -229,6 +229,20 @@ JOIN `staging_categories_new`
     ON `staging_categories_import`.`categories_id`=`staging_categories_new`.`categories_id`;
 -- }}}
 --    find and update parent category changes
+-- Update changes in parent_id {{{
+DROP TABLE IF EXISTS `staging_categories_parent`;
+CREATE TEMPORARY TABLE `staging_categories_parent` (
+    `categories_id` INT(11) NOT NULL,
+    `parent_id`     INT(11) NOT NULL
+)Engine=MyISAM AS
+SELECT
+    `staging_categories_import`.`categories_id`,
+    `staging_categories_import`.`parent_id`
+FROM `staging_categories_import`
+JOIN `staging_categories_live`
+    ON `staging_categories_import`.`categories_id`=`staging_categories_live`.`categories_id`
+WHERE NOT `staging_categories_import`.`parent_id`=`staging_categories_live`.`parent_id`;
+-- }}}
 --    update category names, unless current name was manually adjusted
 --    verify status of categories
 --    collect list of anomolies (name too long, missing parent, active child-inactive parent, etc.) [staging_categories_errors]
