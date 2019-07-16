@@ -189,6 +189,16 @@ SET `staging_categories_live`.`categories_status`=0
 WHERE `staging_categories_import`.`categories_id` IS NULL;
 -- }}}
 --    remove unchanged categories from _import
+-- Drop unchanged categories from further processin {{{
+DELETE `staging_categories_import`
+FROM `staging_categories_import`
+JOIN `staging_categories_live`
+    ON `staging_categories_import`.`categories_id`=`staging_categories_live`.`categories_id`
+WHERE
+    `staging_categories_import`.`categories_name`=`staging_categories_live`.`categories_name` AND
+    `staging_categories_import`.`parent_id`=`staging_categories_live`.`parent_id` AND
+    `staging_categories_import`.`categories_status`=`staging_categories_live`.`categories_status`;
+-- }}}
 --    filter new categories from _import [staging_categories_new]
 --    find and update parent category changes
 --    update category names, unless current name was manually adjusted
