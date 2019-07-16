@@ -175,6 +175,19 @@ FROM `staging_categories_ag`
 ORDER BY `dept_deep`,`parent_id`,`dept_code`;
 -- }}}
 --    mark dropped categories as inactive
+-- Missing categories become inactive {{{
+DROP TABLE IF EXISTS `staging_categories_dropped`;
+CREATE TEMPORARY TABLE `staging_categories_dropped` (
+    `categories_id` INT(11) NOT NULL
+)Engine=MyISAM AS
+SELECT
+    `staging_categories_live`.`categories_id`
+FROM `staging_categories_live`
+LEFT OUTER JOIN `staging_categories_import`
+    ON `staging_categories_live`.`categories_id`=`staging_categories_import`.`categories_id`
+SET `staging_categories_live`.`categories_status`=0
+WHERE `staging_categories_import`.`categories_id` IS NULL;
+-- }}}
 --    remove unchanged categories from _import
 --    filter new categories from _import [staging_categories_new]
 --    find and update parent category changes
