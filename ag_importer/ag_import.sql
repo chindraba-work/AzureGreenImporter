@@ -185,7 +185,6 @@ SELECT
 FROM `staging_categories_live`
 LEFT OUTER JOIN `staging_categories_import`
     ON `staging_categories_live`.`categories_id`=`staging_categories_import`.`categories_id`
-SET `staging_categories_live`.`categories_status`=0
 WHERE `staging_categories_import`.`categories_id` IS NULL;
 -- }}}
 --    remove unchanged categories from _import
@@ -200,6 +199,35 @@ WHERE
     `staging_categories_import`.`categories_status`=`staging_categories_live`.`categories_status`;
 -- }}}
 --    filter new categories from _import [staging_categories_new]
+-- Move new categories to their own table {{{
+DROP TABLE IF EXISTS `staging_categories_new`;
+CREATE TEMPORARY TABLE `staging_categories_new` (
+    `categories_id`           INT(11) NOT NULL,
+    `parent_id`               INT(11) NOT NULL,
+    `categories_name`         VARCHAR(32),
+    `categories_description`  TEXT,
+    `categories_status`       TINYINT(1) NOT NULL DEFAULT 1,
+    `metatags_title`          VARCHAR(255) NOT NULL DEFAULT '',
+    `metatags_keywords`       TEXT DEFAULT NULL,
+    `metatags_description`    TEXT DEFAULT NULL
+) Engine=MyISAM DEFAULT CHARSET=utf8mb4 AS
+SELECT
+    `staging_categories_import`.`categories_id`,
+    `staging_categories_import`.`parent_id`,
+    `staging_categories_import`.`categories_name`,
+    `staging_categories_import`.`categories_description`,
+    `staging_categories_import`.`categories_status`,
+    `staging_categories_import`.`metatags_title`,
+    `staging_categories_import`.`metatags_keywords`,
+    `staging_categories_import`.`metatags_description`
+FROM `staging_categories_import`
+LEFT OUTER JOIN `staging_categories_live`
+    ON `staging_categories_import`.`categories_id`=`staging_categories_live`.`categories_id`;
+DELETE `staging_categories_import`
+FROM `staging_categories_import`
+JOIN `staging_categories_new`
+    ON `staging_categories_import`.`categories_id`=`staging_categories_new`.`categories_id`;
+-- }}}
 --    find and update parent category changes
 --    update category names, unless current name was manually adjusted
 --    verify status of categories
