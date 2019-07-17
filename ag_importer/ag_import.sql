@@ -418,6 +418,28 @@ WHERE
 
 -- Import product data
 --    clone existing data [staging_products_current]
+-- Convenience view for current data {{{
+CREATE OR REPLACE VIEW `staging_products_live` AS
+SELECT
+    `products_id`,
+    `products_model`,
+    `products_image`,
+    `products_price`,
+    `products_price_sorter`,
+    `products_quantity`,
+    `products_date_added`,
+    `products_last_modified`,
+    `products_date_available`,
+    `products_weight`,
+    `products_status`,
+    `master_categories_id`,
+    `products_name`,
+    `products_description`
+FROM `products`
+LEFT OUTER JOIN `products_description`
+    ON `products`.`products_id`=`products_description`.`products_id`
+WHERE `language_id`=1; 
+-- }}}
 --    read raw data from CSV file [staging_products_complete_ag {db_import-ag_complete_files.csv},
 --                                 staging_products_stockinfo_ag {db_import-stockinfo.csv},
 --                                 staging_products_description_ag {db_import-descriptions.csv}]
