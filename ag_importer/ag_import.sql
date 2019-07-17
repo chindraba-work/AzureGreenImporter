@@ -248,6 +248,30 @@ WHERE NOT
     `staging_categories_live`.`last_modified` IS NULL;
 -- }}}
 --    verify status of categories
+-- Set status of categories to match the data from AzureGree {{{
+DROP TABLE IF EXISTS `staging_categories_status`;
+CREATE TEMPORARY TABLE `staging_categories_status` (
+    `categories_id`     INT(11) NOT NULL,
+    `categories_status` TINYINT(1) NOT NULL DEFAULT 1,
+    PRIMARY KEY (`categories_id`)
+)Engine=MEMORY AS
+SELECT
+    `staging_categories_import`.`categories_id`,
+    `staging_categories_import`.`categories_status`
+FROM `staging_categories_import`
+JOIN `staging_categories_live`
+    ON `staging_categories_import`.`categories_id`=`staging_categories_live`.`categories_id`
+WHERE NOT `staging_categories_import`.`categories_status`=`staging_categories_live`.`categories_status`;
+-- }}}
+-- Merge in, and override, the status set because of being dropped by AzureGreen {{{
+INSERT INTO `staging_categories_status` (
+    `categories_id`,
+    `categories_status`
+)
+SELECT `categories_id`,0
+FROM `staging_categories_dropped`
+ON DUPLICATE KEY UPDATE `categories_status`=0;
+-- }}}
 --    collect list of anomolies (name too long, missing parent, active child-inactive parent, etc.) [staging_categories_errors]
 --    insert new categories into database
 --    force inactive status for unwanted categories
