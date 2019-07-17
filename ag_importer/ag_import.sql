@@ -244,6 +244,24 @@ JOIN `staging_categories_live`
 WHERE NOT `staging_categories_import`.`parent_id`=`staging_categories_live`.`parent_id`;
 -- }}}
 --    update category names, unless current name was manually adjusted
+-- Update changes in category names {{{
+DROP TABLE IF EXISTS `staging_categories_rename`;
+CREATE TEMPORARY TABLE `staging_categories_rename` (
+    `categories_id`         INT(11) NOT NULL,
+    `categories_name        VARCHAR(32) NOT NULL DEFAULT '',
+    `categories_description TEXT NOT NULL DEFAULT ''
+)Engine=MEMORY DEFAULT CHARSET=utf8mb4 AS
+SELECT
+    `staging_categories_import`.`categories_id`,
+    LEFT(`staging_categories_import`.`categories_name`,32),
+    `staging_categories_import`.`categories_name`
+FROM `staging_categories_import`
+JOIN `staging_categories_live`
+    ON `staging_categories_live`.`categories_id`=`staging_categories_import`.`categories_id`
+WHERE NOT
+    `staging_categories_live`.`categories_description`=`staging_categories_import`.`categories_description` AND
+    `staging_categories_live`.`last_modified` IS NULL;
+-- }}}
 --    verify status of categories
 --    collect list of anomolies (name too long, missing parent, active child-inactive parent, etc.) [staging_categories_errors]
 --    insert new categories into database
