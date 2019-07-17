@@ -273,6 +273,145 @@ FROM `staging_categories_dropped`
 ON DUPLICATE KEY UPDATE `categories_status`=0;
 -- }}}
 --    collect list of anomolies (name too long, missing parent, active child-inactive parent, etc.) [staging_categories_errors]
+-- Record problems encountered in the data {{{
+-- Table to hold the errors {{{
+CREATE TABLE IF NOT EXISTS `staging_categories_errors` (
+    `categories_id`  INT(11) NOT NULL,
+    `issue`          VARCHAR(32) NOT NULL DEFAULT '',
+    `note_1`         TEXT DEFAULT NULL,
+    `note_2`         TEXT DEFAULT NULL,
+    PRIMARY (`categories_id`),
+    KEY `idx_staging_categories_issues` (`issue`)
+)Engine=MEMORY DEFAULT CHARSET=utf8mb4;
+-- }}}
+-- Report new categories with the name too long {{{
+INSERT INTO `staging_categories_errors` (
+    `categories_id`,
+    `issue`,
+    `note_1`,
+    `note_2`
+)
+SELECT 
+    `categories_id`,
+    'Name too long',
+    `categories_name`,
+    `categories_description`
+FROM `staging_categories_new`
+WHERE NOT `categories_name`=`categories_description`;
+-- }}}
+-- Report new categories with invalid parent_id values {{{
+INSERT INTO `staging_categories_errors` (
+    `categories_id`,
+    `issue`,
+    `note_1`
+)
+SELECT 
+    `categories_id`,
+    'Invalid parent_id',
+    `parent_id`
+FROM `staging_categories_new`
+WHERE
+    `parent_id` IN (
+        SELECT `categories_id` FROM `staging_categories_dropped`
+    ) OR
+    `parent_id` NOT IN (
+        SELECT `categories_id` FROM `staging_categories_new`
+        UNION
+        SELECT `categories_id` FROM `staging_categories_import`
+    );
+-- }}}
+-- Report existing categories with now invalid parent_id values {{{
+INSERT INTO `staging_categories_errors` (
+    `categories_id`,
+    `issue`,
+    `note_1`
+)
+SELECT 
+    `categories_id`,
+    'Invalid parent_id',
+    `parent_id`
+FROM `staging_categories_live`
+WHERE
+    `parent_id` IN (
+        SELECT `categories_id` FROM `staging_categories_dropped`
+    ) OR
+    `parent_id` NOT IN (
+        SELECT `categories_id` FROM `staging_categories_new`
+        UNION
+        SELECT `categories_id` FROM `staging_categories_import`
+    );
+-- }}}
+-- Report active categories which have inactive parents {{{
+-- New table categories and new table parents {{{
+INSERT INTO `staging_categories_errors` (
+    `categories_id`,
+    `issue`,
+    `note_1`
+)
+SELECT
+    `categories_id`,
+    'Inactive parent',
+    `parent_id`
+FROM `staging_categories_new` AS `child_table`
+JOIN `staging_categoires_new` AS `parent_table`
+    ON `child_table`.`parent_id`=`parent_table`.`categories_id`
+WHERE 
+    `child_table`.`categories_status`=1 AND
+    `parent_table`.`categories_status`=0;
+-- }}}
+-- New table categories and import table parents {{{
+INSERT INTO `staging_categories_errors` (
+    `categories_id`,
+    `issue`,
+    `note_1`
+)
+SELECT
+    `categories_id`,
+    'Inactive parent',
+    `parent_id`
+FROM `staging_categories_new` AS `child_table`
+JOIN `staging_categoires_import` AS `parent_table`
+    ON `child_table`.`parent_id`=`parent_table`.`categories_id`
+WHERE 
+    `child_table`.`categories_status`=1 AND
+    `parent_table`.`categories_status`=0;
+-- }}}
+-- Import table categories and new table parents {{{
+INSERT INTO `staging_categories_errors` (
+    `categories_id`,
+    `issue`,
+    `note_1`
+)
+SELECT
+    `categories_id`,
+    'Inactive parent',
+    `parent_id`
+FROM `staging_categories_import` AS `child_table`
+JOIN `staging_categoires_new` AS `parent_table`
+    ON `child_table`.`parent_id`=`parent_table`.`categories_id`
+WHERE 
+    `child_table`.`categories_status`=1 AND
+    `parent_table`.`categories_status`=0;
+-- }}}
+-- Import table categories and import table parents {{{
+INSERT INTO `staging_categories_errors` (
+    `categories_id`,
+    `issue`,
+    `note_1`
+)
+SELECT
+    `categories_id`,
+    'Inactive parent',
+    `parent_id`
+FROM `staging_categories_import` AS `child_table`
+JOIN `staging_categoires_import` AS `parent_table`
+    ON `child_table`.`parent_id`=`parent_table`.`categories_id`
+WHERE 
+    `child_table`.`categories_status`=1 AND
+    `parent_table`.`categories_status`=0;
+-- }}}
+-- }}}
+-- }}}
 --    insert new categories into database
 --    force inactive status for unwanted categories
 
