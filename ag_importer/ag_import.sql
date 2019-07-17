@@ -57,7 +57,7 @@ DROP TEMPORARY TABLE IF EXISTS `staging_control_dates`;
 CREATE TEMPORARY TABLE `staging_control_dates` (
     `add_date` DATETIME NOT NULL DEFAULT '2018-10-31 21:13:08',
     `new_date` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP 
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4;
+) ENGINE=MEMORY DEFAULT CHARSET=utf8mb4;
 -- }}}
 
 -- Read the control dates in control_dates.csv {{{
@@ -100,18 +100,12 @@ SELECT
     `date_added`,
     `last_modified`,
     `categories_status`,
-    `categories_name`,
-    `categories_description`,
-    `metatags_title`,
-    `metatags_keywords`,
-    `metatags_description`
+    `categories_description`
 FROM `categories`
 LEFT OUTER JOIN `categories_description`
     USING (`categories_id`)
-LEFT OUTER JOIN `meta_tags_categories_description`
-    USING (`categories_id`,`language_id`)
 WHERE `language_id`=1
-ORDER BY `parent_id`,`categories_name`;
+ORDER BY `parent_id`,`categories_description`;
 -- }}}
 --    read raw data from CSV file [staging_categories_ag {db_import-departments.csv}]
 -- The table to read the CSV into {{{
@@ -124,7 +118,7 @@ CREATE TEMPORARY TABLE `staging_categories_ag` (
     `parent_id`  INT(11) NOT NULL DEFAULT 0,
     INDEX (`dept_code`),
     INDEX (`parent_id`)
-) Engine=MyISAM DEFAULT CHARSET=utf8mb4;
+) Engine=MEMORY DEFAULT CHARSET=utf8mb4;
 -- }}}
 -- Read the AzureGreen data file {{{
 LOAD DATA LOCAL
@@ -144,33 +138,24 @@ DROP TABLE IF EXISTS `staging_categories_import`;
 CREATE TEMPORARY TABLE `staging_categories_import` (
     `categories_id`           INT(11) NOT NULL,
     `parent_id`               INT(11) NOT NULL,
-    `categories_name`         VARCHAR(32),
-    `categories_description`  TEXT,
+    `categories_description`  VARCHAR(255),
     `categories_status`       TINYINT(1) NOT NULL DEFAULT 1,
-    `metatags_title`          VARCHAR(255) NOT NULL DEFAULT '',
-    `metatags_keywords`       TEXT DEFAULT NULL,
-    `metatags_description`    TEXT DEFAULT NULL
-) Engine=MyISAM DEFAULT CHARSET=utf8mb4;
+    PRIMARY (`categories_id`),
+    KEY `idx_staging_categories_name_import` (`categories_description`),
+    UNIQUE `ids_staging_categories_by_parent_import` (`parent_id`,`categories_description`)
+) Engine=MEMORY DEFAULT CHARSET=utf8mb4;
 -- }}}
 -- Convert the data to Zen-Cart rules {{{
 INSERT INTO `staging_categories_import` (
     `categories_id`,
     `parent_id`,
-    `categories_name`,
     `categories_description`,
-    `categories_status`,
-    `metatags_title`,
-    `metatags_keywords`,
-    `metatags_description`
+    `categories_status`
 ) SELECT
     `dept_code`,
     `parent_id`,
-    LEFT(`dept_name`,32),
     `dept_name`,
-    `dept_show`,
-    `dept_name`,
-    `dept_name`,
-    `dept_name`
+    `dept_show`
 FROM `staging_categories_ag`
 ORDER BY `dept_deep`,`parent_id`,`dept_code`;
 -- }}}
@@ -179,7 +164,7 @@ ORDER BY `dept_deep`,`parent_id`,`dept_code`;
 DROP TABLE IF EXISTS `staging_categories_dropped`;
 CREATE TEMPORARY TABLE `staging_categories_dropped` (
     `categories_id` INT(11) NOT NULL
-)Engine=MyISAM AS
+)Engine=MEMORY AS
 SELECT
     `staging_categories_live`.`categories_id`
 FROM `staging_categories_live`
@@ -188,13 +173,13 @@ LEFT OUTER JOIN `staging_categories_import`
 WHERE `staging_categories_import`.`categories_id` IS NULL;
 -- }}}
 --    remove unchanged categories from _import
--- Drop unchanged categories from further processin {{{
+-- Drop unchanged categories from further processing {{{
 DELETE `staging_categories_import`
 FROM `staging_categories_import`
 JOIN `staging_categories_live`
     ON `staging_categories_import`.`categories_id`=`staging_categories_live`.`categories_id`
 WHERE
-    `staging_categories_import`.`categories_name`=`staging_categories_live`.`categories_name` AND
+    `staging_categories_import`.`categories_description`=`staging_categories_live`.`categories_description` AND
     `staging_categories_import`.`parent_id`=`staging_categories_live`.`parent_id` AND
     `staging_categories_import`.`categories_status`=`staging_categories_live`.`categories_status`;
 -- }}}
@@ -205,24 +190,22 @@ CREATE TEMPORARY TABLE `staging_categories_new` (
     `categories_id`           INT(11) NOT NULL,
     `parent_id`               INT(11) NOT NULL,
     `categories_name`         VARCHAR(32),
-    `categories_description`  TEXT,
+    `categories_description`  VARCHAR(255),
     `categories_status`       TINYINT(1) NOT NULL DEFAULT 1,
-    `metatags_title`          VARCHAR(255) NOT NULL DEFAULT '',
-    `metatags_keywords`       TEXT DEFAULT NULL,
-    `metatags_description`    TEXT DEFAULT NULL
-) Engine=MyISAM DEFAULT CHARSET=utf8mb4 AS
+    PRIMARY (`categories_id`),
+    KEY `idx_staging_categories_name_new` (`categories_name`),
+    UNIQUE `idx_staging_categories_by_parent_new` (`parent_id`,`categories_description`)
+) Engine=MEMORY DEFAULT CHARSET=utf8mb4 AS
 SELECT
     `staging_categories_import`.`categories_id`,
     `staging_categories_import`.`parent_id`,
-    `staging_categories_import`.`categories_name`,
+    LEFT(`staging_categories_import`.`categories_description,32),
     `staging_categories_import`.`categories_description`,
-    `staging_categories_import`.`categories_status`,
-    `staging_categories_import`.`metatags_title`,
-    `staging_categories_import`.`metatags_keywords`,
-    `staging_categories_import`.`metatags_description`
+    `staging_categories_import`.`categories_status`
 FROM `staging_categories_import`
 LEFT OUTER JOIN `staging_categories_live`
     ON `staging_categories_import`.`categories_id`=`staging_categories_live`.`categories_id`;
+
 DELETE `staging_categories_import`
 FROM `staging_categories_import`
 JOIN `staging_categories_new`
@@ -233,8 +216,9 @@ JOIN `staging_categories_new`
 DROP TABLE IF EXISTS `staging_categories_parent`;
 CREATE TEMPORARY TABLE `staging_categories_parent` (
     `categories_id` INT(11) NOT NULL,
-    `parent_id`     INT(11) NOT NULL
-)Engine=MyISAM AS
+    `parent_id`     INT(11) NOT NULL,
+    PRIMART (`categories_id`)
+)Engine=MEMORY AS
 SELECT
     `staging_categories_import`.`categories_id`,
     `staging_categories_import`.`parent_id`
@@ -249,7 +233,8 @@ DROP TABLE IF EXISTS `staging_categories_rename`;
 CREATE TEMPORARY TABLE `staging_categories_rename` (
     `categories_id`         INT(11) NOT NULL,
     `categories_name        VARCHAR(32) NOT NULL DEFAULT '',
-    `categories_description TEXT NOT NULL DEFAULT ''
+    `categories_description VARCHAR(255) NOT NULL DEFAULT '',
+    PRIMARY (`categories_id`)
 )Engine=MEMORY DEFAULT CHARSET=utf8mb4 AS
 SELECT
     `staging_categories_import`.`categories_id`,
