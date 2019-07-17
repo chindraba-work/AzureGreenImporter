@@ -30,6 +30,9 @@
 #        USA.                                                          #
 #                                                                      #
 ##################################################################### */
+
+-- TODO Add the "update" for categories
+--      Force some categories to inactive
 -- }}}
 
 -- Instructions {{{
@@ -89,7 +92,7 @@ FROM `staging_control_dates`;
 --       Could be useful, as well, to customize the "add" date for entries.
 -- }}}
 
--- Import category data
+-- Import category data {{{
 --    clone existing data [staging_categories_current]
 -- Convenience view for current data {{{
 CREATE OR REPLACE VIEW `staging_categories_live` AS
@@ -414,9 +417,10 @@ WHERE
 -- }}}
 --    insert new categories into database
 --    force inactive status for unwanted categories
+-- }}}
 
 
--- Import product data
+-- Import product data {{{
 --    clone existing data [staging_products_current]
 -- Convenience view for current data {{{
 CREATE OR REPLACE VIEW `staging_products_live` AS
@@ -441,8 +445,76 @@ LEFT OUTER JOIN `products_description`
 WHERE `language_id`=1; 
 -- }}}
 --    read raw data from CSV file [staging_products_complete_ag {db_import-ag_complete_files.csv},
+-- Read the raw CSV files of product data into tables {{{
+-- Table for the raw CSV data in the ag_complete_files file {{{
+DROP TABLE IF EXISTS `staging_products_complete_ag`;
+CREATE TEMPORARY TABLE `staging_products_complete_ag` (
+    `prod_code`  VARCHAR(32) NOT NULL DEFAULT '',
+    `prod_desc`  VARCHAR(255) NOT NULL DEFAULT '',
+    `narrative`  TEXT DEFAULT NULL,
+    `units_qty`  FLOAT NOT NULL DEFAULT 0,
+    `weight`     FLOAT NOT NULL DEFAULT 0,
+    `price`      DECIMAL(15,4) NOT NULL DEFAULT 0.0000,
+    `del_date`   VARCHAR(20),
+    `discont`    TINYINT(1) NOT NULL DEFAULT 0,
+    `prod_image` VARCHAR(255) DEFAULT NULL,
+    `cantsell`   TINYINT(1) NOT NULL DEFAULT 0,
+    INDEX (`prod_code`)
+)Engine=MyISAM DEFAULT CHARSET=utf8mb4;
+-- }}}
+-- Read the ag_complete_files.csv file {{{
+LOAD DATA LOCAL
+    INFILE 'db_import-ag_complete_files.csv'
+INTO TABLE `staging_products_complete_ag`
+    FIELDS TERMINATED BY ','
+    OPTIONALLY ENCLOSED BY '"'
+    LINES TERMINATED BY '\n'
+    IGNORE 1 LINES;
+-- }}}
 --                                 staging_products_stockinfo_ag {db_import-stockinfo.csv},
+-- Table for the raw CSV data in the stockinfo file {{{
+DROP TABLE IF EXISTS `staging_products_stockinfo_ag`;
+CREATE TEMPORARY TABLE `staging_products_stockinfo_ag` (
+    `prod_code`  VARCHAR(32) NOT NULL DEFAULT '',
+    `prod_desc`  VARCHAR(255) NOT NULL DEFAULT '',
+    `units_qty`  FLOAT NOT NULL DEFAULT 0,
+    `weight`     FLOAT NOT NULL DEFAULT 0,
+    `price`      DECIMAL(15,4) NOT NULL DEFAULT 0.0000,
+    `del_date`   VARCHAR(20),
+    `discont`    TINYINT(1) NOT NULL DEFAULT 0,
+    `prod_image` VARCHAR(255) DEFAULT NULL,
+    `cantsell`   TINYINT(1) NOT NULL DEFAULT 0,
+    INDEX (`prod_code`)
+)Engine=MyISAM DEFAULT CHARSET=utf8mb4;
+-- }}}
+-- Read the stockinfo.csv file {{{
+LOAD DATA LOCAL
+    INFILE 'db_import-stockinfo.csv'
+INTO TABLE `staging_products_stockinfo_ag`
+    FIELDS TERMINATED BY ','
+    OPTIONALLY ENCLOSED BY '"'
+    LINES TERMINATED BY '\n'
+    IGNORE 1 LINES;
+-- }}}
 --                                 staging_products_description_ag {db_import-descriptions.csv}]
+-- Table for the raw CSV data in the descriptions file {{{
+DROP TABLE IF EXISTS `staging_products_description_ag`;
+CREATE TEMPORARY TABLE `staging_products_description_ag` (
+    `prod_code`  VARCHAR(32) NOT NULL DEFAULT '',
+    `narrative`  TEXT DEFAULT NULL,
+    INDEX (`prod_code`)
+)Engine=MyISAM DEFAULT CHARSET=utf8mb4;
+-- }}}
+-- Read the descriptions.csv file {{{
+LOAD DATA LOCAL
+    INFILE 'db_import-descriptions.csv'
+INTO TABLE `staging_products_descriptions_ag`
+    FIELDS TERMINATED BY ','
+    OPTIONALLY ENCLOSED BY '"'
+    LINES TERMINATED BY '\n'
+    IGNORE 1 LINES;
+-- }}}
+-- }}}
 --    convert data to Zen-Cart standards [staging_products_import]
 --    filter new products from _import [staging_products_new]
 --    mark dropped products as inactive
@@ -452,8 +524,9 @@ WHERE `language_id`=1;
 --    update product status based on import status or quantity
 --    collect anomolies (name/desc too long, missing data, etc.) [staging_products_errors]
 --    insert new products into database
+-- }}}
 
--- Import product-category links
+-- Import product-category links {{{
 --    clone existing data [staging_products_categories_current]
 --    read raw data from CSV file [staging_products_categories_ag {db_import-product-department.csv}]
 --    convert data to Zen-Cart standards [staging_products_categories_import]
@@ -465,9 +538,10 @@ WHERE `language_id`=1;
 --    verify master of all products is still in link table
 --       for dropped categories: set master to "missing", and add to anomolies
 --       for existing categories: re-add to link table, and add to anomolies
+-- }}}
 
 
--- Generate script to use in the admin area Install SQL Patch page
+-- Generate script to use in the admin area Install SQL Patch page {{{
 --    INSERT for products
 --               products_descriptions
 --               meta_tags_products_descriptions
@@ -483,3 +557,4 @@ WHERE `language_id`=1;
 --               meta_tags_categories_descriptions
 --               products_to_categories
 --    DELETE FROM products_to_categories
+-- }}}
