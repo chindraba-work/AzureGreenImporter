@@ -666,6 +666,55 @@ SET
 -- }}}
 -- }}}
 --    filter new products from _import [staging_products_new]
+-- Move new products to their own table {{{
+DROP TABLE IF EXISTS `staging_products_new`;
+CREATE TEMPORARY TABLE `staging_products_new` (
+    `products_id`             INT(11) DEFAULT NULL,
+    `products_model`          VARCHAR(32) DEFAULT NULL,
+    `products_image`          VARCHAR(255) DEFAULT NULL,
+    `products_price`          DECIMAL(15,4) NOT NULL DEFAULT 0.0000,
+    `products_price_sorter`   DECIMAL(15,4) NOT NULL DEFAULT 0.0000,
+    `products_quantity`       FLOAT NOT NULL DEFAULT 0,
+    `products_date_added`     DATETIME NOT NULL DEFAULT '2019-10-31 03:13:21',
+    `products_last_modified`  DATETIME DEFAULT NULL,
+    `products_weight`         FLOAT NOT NULL DEFAULT 0,
+    `products_status`         TINYINT(1) NOT NULL DEFAULT 0,
+    `master_categories_id`    INT(11) NOT NULL DEFAULT 0,
+    `products_name`           VARCHAR(64) NOT NULL DEFAULT '',
+    `products_description`    TEXT DEFAULT NULL,
+    PRIMARY KEY (`products_model`),
+    UNIQUE `idx_staging_products_id_import` (`products_id`),
+    KEY `idx_staging_products_name_import` (`products_name`),
+    KEY `idx_staging_products_status_import` (`products_status`),
+    KEY `idx_staging_products_date_added_import` (`products_date_added`),
+    KEY `idx_staging_master_categories_id_import` (`master_categories_id`)
+)Engine=MyISAM DEFAULT CHARSET=utf8mb4 AS
+SELECT
+    `staging_products_import`.`products_id`,
+    `staging_products_import`.`products_model`,
+    `staging_products_import`.`products_image`,
+    `staging_products_import`.`products_price`,
+    `staging_products_import`.`products_price_sorter`,
+    `staging_products_import`.`products_quantity`,
+    `staging_products_import`.`products_date_added`,
+    `staging_products_import`.`products_last_modified`,
+    `staging_products_import`.`products_weight`,
+    `staging_products_import`.`products_status`,
+    `staging_products_import`.`master_categories_id`,
+    `staging_products_import`.`products_name`,
+    `staging_products_import`.`products_description`
+FROM `staging_products_import`
+LEFT OUTER JOIN `staging_products_live`
+    ON `staging_products_import`.`products_model`
+        = `staging_products_live`.`products_model`
+WHERE `staging_products_live`.`products_model` IS NULL;
+
+DELETE `staging_products_import`
+FROM `staging_products_import`
+JOIN `staging_products_new`
+    ON `staging_products_import`.`products_model`
+        = `staging_products_new`.`products_model`;
+-- }}}
 --    mark dropped products as inactive
 --    update quantity, weight and price, where available, from import data
 --    remove unchanged products from _import, ignoring changes in qty, price and weight
