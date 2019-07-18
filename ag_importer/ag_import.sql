@@ -540,6 +540,42 @@ CREATE TABLE `staging_products_import` (
     KEY `idx_staging_master_categories_id_import` (`master_categories_id`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4;
 -- }}}
+-- Convert the products data to Zen-Cart rules {{{
+-- Process the complete listing first {{{
+INSERT INTO `staging_products_import` (
+    `products_model`,
+    `products_image`,
+    `products_price`,
+    `products_price_sorter`,
+    `products_quantity`,
+    `products_date_added`,
+    `products_last_modified`,
+    `products_weight`,
+    `products_status`,
+    `master_categories_id`,
+    `products_name`,
+    `products_description`
+)
+SELECT 
+    `prod_code`,
+    LCASE(CONCAT(
+        LEFT(`prod_image`,2),
+        '/',
+        `prod_image`
+    )),
+    `price`,
+    `price`,
+    `units_qty`,
+    @SCRIPT_ADD_DATE,
+    NULL,
+    `weight`,
+    IF(`cantsell`=1,0,1),
+    5000,
+    LEFT(`prod_desc`,64),
+    `narrative`
+FROM `staging_products_complete_ag`;
+-- }}}
+-- }}}
 --    filter new products from _import [staging_products_new]
 --    mark dropped products as inactive
 --    update quantity, weight and price, where available, from import data
