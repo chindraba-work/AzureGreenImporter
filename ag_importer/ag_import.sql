@@ -738,6 +738,16 @@ SELECT
 FROM `staging_products_import`;
 -- }}}
 --    remove unchanged products from _import, ignoring changes in qty, price and weight
+-- Drop unchanged products from further processing {{{
+DELETE `staging_products_import`
+FROM `staging_products_import`
+JOIN `staging_products_live`
+    ON `staging_products_import`.`products_model`
+        = `staging_products_live`.`products_model`
+WHERE
+    `staging_products_import`.`products_name`=`staging_products_live`.`products_name` AND
+    `staging_products_import`.`products_description`=`staging_products_live`.`products_description`;
+-- }}}
 --    update product name and description where different, unless manually changed in database
 --    update product status based on import status or quantity
 --    collect anomolies (name/desc too long, missing data, etc.) [staging_products_errors]
