@@ -641,6 +641,29 @@ SET
     `staging_products_import`.`products_name`
         = LEFT(`staging_products_stockinfo_ag`.`prod_desc`,64);
 -- }}}
+-- Process the descriptions file, with minimal data available adding any not in the table so far {{{
+INSERT INTO `staging_products_import` (
+    `products_model`,
+    `products_description`
+)
+SELECT 
+    `staging_products_description_ag`.`prod_code`,
+    `staging_products_description_ag`.`narrative`
+FROM `staging_products_description_ag`
+LEFT OUTER JOIN `staging_products_complete_ag`
+    ON `staging_products_description_ag`.`prod_code`
+        = `staging_products_complete_ag`.`prod_code`
+WHERE `staging_products_complete_ag`.`prod_code` IS NULL;
+-- }}}
+-- Process the descriptions file, with minimal data available, updating anything already there {{{
+UPDATE `staging_products_import`
+JOIN `staging_products_description_ag`
+    ON `staging_products_import`.`products_model`
+        = `staging_products_description_ag`.`prod_code`
+SET
+    `staging_products_import`.`products_description`
+        = `staging_products_description_ag`.`narrative`;
+-- }}}
 -- }}}
 --    filter new products from _import [staging_products_new]
 --    mark dropped products as inactive
