@@ -429,7 +429,6 @@ SELECT
     `products_model`,
     `products_image`,
     `products_price`,
-    `products_price_sorter`,
     `products_quantity`,
     `products_date_added`,
     `products_last_modified`,
@@ -523,7 +522,6 @@ CREATE TABLE `staging_products_import` (
     `products_model`          VARCHAR(32) DEFAULT NULL,
     `products_image`          VARCHAR(255) DEFAULT NULL,
     `products_price`          DECIMAL(15,4) NOT NULL DEFAULT 0.0000,
-    `products_price_sorter`   DECIMAL(15,4) NOT NULL DEFAULT 0.0000,
     `products_quantity`       FLOAT NOT NULL DEFAULT 0,
     `products_date_added`     DATETIME NOT NULL DEFAULT '2019-10-31 03:13:21',
     `products_last_modified`  DATETIME DEFAULT NULL,
@@ -546,7 +544,6 @@ INSERT INTO `staging_products_import` (
     `products_model`,
     `products_image`,
     `products_price`,
-    `products_price_sorter`,
     `products_quantity`,
     `products_date_added`,
     `products_last_modified`,
@@ -564,7 +561,6 @@ SELECT
         `prod_image`
     )),
     `price`,
-    `price`,
     `units_qty`,
     @SCRIPT_ADD_DATE,
     NULL,
@@ -580,7 +576,6 @@ INSERT INTO `staging_products_import` (
     `products_model`,
     `products_image`,
     `products_price`,
-    `products_price_sorter`,
     `products_quantity`,
     `products_date_added`,
     `products_last_modified`,
@@ -596,7 +591,6 @@ SELECT
         '/',
         `staging_products_stockinfo_ag`.`prod_image`
     )),
-    `staging_products_stockinfo_ag`.`price`,
     `staging_products_stockinfo_ag`.`price`,
     `staging_products_stockinfo_ag`.`units_qty`,
     @SCRIPT_ADD_DATE,
@@ -626,8 +620,6 @@ SET
             `staging_products_stockinfo_ag`.`prod_image`
         )),
     `staging_products_import`.`products_price`
-        = `staging_products_stockinfo_ag`.`price`,
-    `staging_products_import`.`products_price_sorter`
         = `staging_products_stockinfo_ag`.`price`,
     `staging_products_import`.`products_quantity`
         = `staging_products_stockinfo_ag`.`units_qty`,
@@ -673,7 +665,6 @@ CREATE TEMPORARY TABLE `staging_products_new` (
     `products_model`          VARCHAR(32) DEFAULT NULL,
     `products_image`          VARCHAR(255) DEFAULT NULL,
     `products_price`          DECIMAL(15,4) NOT NULL DEFAULT 0.0000,
-    `products_price_sorter`   DECIMAL(15,4) NOT NULL DEFAULT 0.0000,
     `products_quantity`       FLOAT NOT NULL DEFAULT 0,
     `products_date_added`     DATETIME NOT NULL DEFAULT '2019-10-31 03:13:21',
     `products_last_modified`  DATETIME DEFAULT NULL,
@@ -694,7 +685,6 @@ SELECT
     `staging_products_import`.`products_model`,
     `staging_products_import`.`products_image`,
     `staging_products_import`.`products_price`,
-    `staging_products_import`.`products_price_sorter`,
     `staging_products_import`.`products_quantity`,
     `staging_products_import`.`products_date_added`,
     `staging_products_import`.`products_last_modified`,
@@ -730,6 +720,23 @@ LEFT OUTER JOIN `staging_products_import`
 WHERE `staging_products_import`.`products_model` IS NULL;
 -- }}}
 --    update quantity, weight and price, where available, from import data
+-- Table for the vital statistics for products {{{
+DROP TABLE IF EXISTS `staging_products_vitals`;
+CREATE TEMPORARY TABLE `staging_products_vitals` (
+    `products_id`           INT(11) DEFAULT NULL,
+    `products_model`        VARCHAR(32) NOT NULL DEFAULT '',
+    `products_quantity`     FLOAT NOT NULL DEFAULT 0,
+    `products_weight`       FLOAT NOT NULL DEFAULT 0,
+    `products_price`        DECIMAL(15,4) NOT NULL DEFAULT 0.0000
+)Engine=MEMORY DEFAULT CHARSET=utf8mb4 AS
+SELECT
+    `products_id`,
+    `products_model`,
+    `products_quantity`,
+    `products_weight`,
+    `products_price`
+FROM `staging_products_import`;
+-- }}}
 --    remove unchanged products from _import, ignoring changes in qty, price and weight
 --    update product name and description where different, unless manually changed in database
 --    update product status based on import status or quantity
