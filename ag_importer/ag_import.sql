@@ -143,9 +143,9 @@ CREATE TEMPORARY TABLE `staging_categories_import` (
     `parent_id`               INT(11) NOT NULL,
     `categories_description`  VARCHAR(255),
     `categories_status`       TINYINT(1) NOT NULL DEFAULT 1,
-    PRIMARY (`categories_id`),
+    PRIMARY KEY (`categories_id`),
     KEY `idx_staging_categories_name_import` (`categories_description`),
-    UNIQUE `ids_staging_categories_by_parent_import` (`parent_id`,`categories_description`)
+    UNIQUE `idx_staging_categories_by_parent_import` (`parent_id`,`categories_description`)
 ) Engine=MEMORY DEFAULT CHARSET=utf8mb4;
 -- }}}
 -- Convert the data to Zen-Cart rules {{{
@@ -195,14 +195,14 @@ CREATE TEMPORARY TABLE `staging_categories_new` (
     `categories_name`         VARCHAR(32),
     `categories_description`  VARCHAR(255),
     `categories_status`       TINYINT(1) NOT NULL DEFAULT 1,
-    PRIMARY (`categories_id`),
+    PRIMARY KEY (`categories_id`),
     KEY `idx_staging_categories_name_new` (`categories_name`),
     UNIQUE `idx_staging_categories_by_parent_new` (`parent_id`,`categories_description`)
 ) Engine=MEMORY DEFAULT CHARSET=utf8mb4 AS
 SELECT
     `staging_categories_import`.`categories_id`,
     `staging_categories_import`.`parent_id`,
-    LEFT(`staging_categories_import`.`categories_description,32),
+    LEFT(`staging_categories_import`.`categories_description`,32),
     `staging_categories_import`.`categories_description`,
     `staging_categories_import`.`categories_status`
 FROM `staging_categories_import`
@@ -220,7 +220,7 @@ DROP TABLE IF EXISTS `staging_categories_parent`;
 CREATE TEMPORARY TABLE `staging_categories_parent` (
     `categories_id` INT(11) NOT NULL,
     `parent_id`     INT(11) NOT NULL,
-    PRIMART (`categories_id`)
+    PRIMARY KEY (`categories_id`)
 )Engine=MEMORY AS
 SELECT
     `staging_categories_import`.`categories_id`,
@@ -234,15 +234,15 @@ WHERE NOT `staging_categories_import`.`parent_id`=`staging_categories_live`.`par
 -- Update changes in category names {{{
 DROP TABLE IF EXISTS `staging_categories_rename`;
 CREATE TEMPORARY TABLE `staging_categories_rename` (
-    `categories_id`         INT(11) NOT NULL,
-    `categories_name        VARCHAR(32) NOT NULL DEFAULT '',
-    `categories_description VARCHAR(255) NOT NULL DEFAULT '',
-    PRIMARY (`categories_id`)
+    `categories_id`          INT(11) NOT NULL,
+    `categories_name`        VARCHAR(32) NOT NULL DEFAULT '',
+    `categories_description` VARCHAR(255) NOT NULL DEFAULT '',
+    PRIMARY KEY (`categories_id`)
 )Engine=MEMORY DEFAULT CHARSET=utf8mb4 AS
 SELECT
     `staging_categories_import`.`categories_id`,
-    LEFT(`staging_categories_import`.`categories_name`,32),
-    `staging_categories_import`.`categories_name`
+    LEFT(`staging_categories_import`.`categories_description`,32),
+    `staging_categories_import`.`categories_description`
 FROM `staging_categories_import`
 JOIN `staging_categories_live`
     ON `staging_categories_live`.`categories_id`=`staging_categories_import`.`categories_id`
@@ -283,7 +283,7 @@ CREATE TABLE IF NOT EXISTS `staging_categories_errors` (
     `issue`          VARCHAR(32) NOT NULL DEFAULT '',
     `note_1`         TEXT DEFAULT NULL,
     `note_2`         TEXT DEFAULT NULL,
-    PRIMARY (`categories_id`),
+    PRIMARY KEY (`categories_id`),
     KEY `idx_staging_categories_issues` (`issue`)
 )Engine=MEMORY DEFAULT CHARSET=utf8mb4;
 -- }}}
@@ -352,11 +352,11 @@ INSERT INTO `staging_categories_errors` (
     `note_1`
 )
 SELECT
-    `categories_id`,
+    `child_table`.`categories_id`,
     'Inactive parent',
-    `parent_id`
+    `child_table`.`parent_id`
 FROM `staging_categories_new` AS `child_table`
-JOIN `staging_categoires_new` AS `parent_table`
+JOIN `staging_categories_new` AS `parent_table`
     ON `child_table`.`parent_id`=`parent_table`.`categories_id`
 WHERE 
     `child_table`.`categories_status`=1 AND
@@ -369,11 +369,11 @@ INSERT INTO `staging_categories_errors` (
     `note_1`
 )
 SELECT
-    `categories_id`,
+    `child_table`.`categories_id`,
     'Inactive parent',
-    `parent_id`
+    `child_table`.`parent_id`
 FROM `staging_categories_new` AS `child_table`
-JOIN `staging_categoires_import` AS `parent_table`
+JOIN `staging_categories_import` AS `parent_table`
     ON `child_table`.`parent_id`=`parent_table`.`categories_id`
 WHERE 
     `child_table`.`categories_status`=1 AND
@@ -386,11 +386,11 @@ INSERT INTO `staging_categories_errors` (
     `note_1`
 )
 SELECT
-    `categories_id`,
+    `child_table`.`categories_id`,
     'Inactive parent',
-    `parent_id`
+    `child_table`.`parent_id`
 FROM `staging_categories_import` AS `child_table`
-JOIN `staging_categoires_new` AS `parent_table`
+JOIN `staging_categories_new` AS `parent_table`
     ON `child_table`.`parent_id`=`parent_table`.`categories_id`
 WHERE 
     `child_table`.`categories_status`=1 AND
@@ -403,11 +403,11 @@ INSERT INTO `staging_categories_errors` (
     `note_1`
 )
 SELECT
-    `categories_id`,
+    `child_table`.`categories_id`,
     'Inactive parent',
-    `parent_id`
+    `child_table`.`parent_id`
 FROM `staging_categories_import` AS `child_table`
-JOIN `staging_categoires_import` AS `parent_table`
+JOIN `staging_categories_import` AS `parent_table`
     ON `child_table`.`parent_id`=`parent_table`.`categories_id`
 WHERE 
     `child_table`.`categories_status`=1 AND
@@ -441,7 +441,7 @@ SELECT
     `products_description`
 FROM `products`
 LEFT OUTER JOIN `products_description`
-    ON `products`.`products_id`=`products_description`.`products_id`
+    USING (`products_id`)
 WHERE `language_id`=1; 
 -- }}}
 --    read raw data from CSV file [staging_products_complete_ag {db_import-ag_complete_files.csv},
@@ -508,7 +508,7 @@ CREATE TEMPORARY TABLE `staging_products_description_ag` (
 -- Read the descriptions.csv file {{{
 LOAD DATA LOCAL
     INFILE 'db_import-descriptions.csv'
-INTO TABLE `staging_products_descriptions_ag`
+INTO TABLE `staging_products_description_ag`
     FIELDS TERMINATED BY ','
     OPTIONALLY ENCLOSED BY '"'
     LINES TERMINATED BY '\n'
