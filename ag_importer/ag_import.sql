@@ -516,6 +516,30 @@ INTO TABLE `staging_products_description_ag`
 -- }}}
 -- }}}
 --    convert data to Zen-Cart standards [staging_products_import]
+-- Table for applying the Zen-Cart rules to the products data {{{
+DROP TABLE IF EXISTS `staging_products_import`;
+CREATE TABLE `staging_products_import` (
+    `products_id`             INT(11) DEFAULT NULL,
+    `products_model`          VARCHAR(32) DEFAULT NULL,
+    `products_image`          VARCHAR(255) DEFAULT NULL,
+    `products_price`          DECIMAL(15,4) NOT NULL DEFAULT 0.0000,
+    `products_price_sorter`   DECIMAL(15,4) NOT NULL DEFAULT 0.0000,
+    `products_quantity`       FLOAT NOT NULL DEFAULT 0,
+    `products_date_added`     DATETIME NOT NULL DEFAULT '2019-10-31 03:13:21',
+    `products_last_modified`  DATETIME DEFAULT NULL,
+    `products_weight`         FLOAT NOT NULL DEFAULT 0,
+    `products_status`         TINYINT(1) NOT NULL DEFAULT 0,
+    `master_categories_id`    INT(11) NOT NULL DEFAULT 0,
+    `products_name`           VARCHAR(64) NOT NULL DEFAULT '',
+    `products_description`    TEXT DEFAULT NULL,
+    PRIMARY KEY (`products_model`),
+    UNIQUE `idx_staging_products_id_import` (`products_id`),
+    KEY `idx_staging_products_name_import` (`products_name`),
+    KEY `idx_staging_products_status_import` (`products_status`),
+    KEY `idx_staging_products_date_added_import` (`products_date_added`),
+    KEY `idx_staging_master_categories_id_import` (`master_categories_id`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4;
+-- }}}
 --    filter new products from _import [staging_products_new]
 --    mark dropped products as inactive
 --    update quantity, weight and price, where available, from import data
