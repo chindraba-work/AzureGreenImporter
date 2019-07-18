@@ -716,6 +716,19 @@ JOIN `staging_products_new`
         = `staging_products_new`.`products_model`;
 -- }}}
 --    mark dropped products as inactive
+-- Missing products become inactive {{{
+DROP TABLE IF EXISTS `staging_products_dropped`;
+CREATE TEMPORARY TABLE `staging_products_dropped` (
+    `products_model`  VARCHAR(32) NOT NULL DEFAULT ''
+)Engine=MEMORY DEFAULT CHARSET=utf8mb4 AS
+SELECT
+    `staging_products_live`.`products_model`
+FROM `staging_products_live`
+LEFT OUTER JOIN `staging_products_import`
+    ON `staging_products_live`.`products_model`
+        = `staging_products_import`.`products_model`
+WHERE `staging_products_import`.`products_model` IS NULL;
+-- }}}
 --    update quantity, weight and price, where available, from import data
 --    remove unchanged products from _import, ignoring changes in qty, price and weight
 --    update product name and description where different, unless manually changed in database
