@@ -575,6 +575,72 @@ SELECT
     `narrative`
 FROM `staging_products_complete_ag`;
 -- }}}
+-- Process the stockinfo file second, adding any not in the table so far {{{
+INSERT INTO `staging_products_import` (
+    `products_model`,
+    `products_image`,
+    `products_price`,
+    `products_price_sorter`,
+    `products_quantity`,
+    `products_date_added`,
+    `products_last_modified`,
+    `products_weight`,
+    `products_status`,
+    `master_categories_id`,
+    `products_name`
+)
+SELECT 
+    `staging_products_stockinfo_ag`.`prod_code`,
+    LCASE(CONCAT(
+        LEFT(`staging_products_stockinfo_ag`.`prod_image`,2),
+        '/',
+        `staging_products_stockinfo_ag`.`prod_image`
+    )),
+    `staging_products_stockinfo_ag`.`price`,
+    `staging_products_stockinfo_ag`.`price`,
+    `staging_products_stockinfo_ag`.`units_qty`,
+    @SCRIPT_ADD_DATE,
+    NULL,
+    `staging_products_stockinfo_ag`.`weight`,
+    IF(`staging_products_stockinfo_ag`.`cantsell`=1,0,1),
+    5000,
+    LEFT(`staging_products_stockinfo_ag`.`prod_desc`,64)
+FROM `staging_products_stockinfo_ag`
+LEFT OUTER JOIN `staging_products_complete_ag`
+    ON `staging_products_stockinfo_ag`.`prod_code`
+        = `staging_products_complete_ag`.`prod_code`
+WHERE `staging_products_complete_ag`.`prod_code` IS NULL;
+-- }}}
+-- Process the stockinfo file, updating anything already there {{{
+UPDATE `staging_products_import`
+JOIN `staging_products_stockinfo_ag`
+    ON `staging_products_stockinfo_ag`.`prod_code`
+        = `staging_products_import`.`products_model`
+SET
+    `staging_products_import`.`products_model`
+        = `staging_products_stockinfo_ag`.`prod_code`,
+    `staging_products_import`.`products_image`
+        = LCASE(CONCAT(
+            LEFT(`staging_products_stockinfo_ag`.`prod_image`,2),
+            '/',
+            `staging_products_stockinfo_ag`.`prod_image`
+        )),
+    `staging_products_import`.`products_price`
+        = `staging_products_stockinfo_ag`.`price`,
+    `staging_products_import`.`products_price_sorter`
+        = `staging_products_stockinfo_ag`.`price`,
+    `staging_products_import`.`products_quantity`
+        = `staging_products_stockinfo_ag`.`units_qty`,
+    `staging_products_import`.`products_date_added`=@SCRIPT_ADD_DATE,
+    `staging_products_import`.`products_last_modified`=NULL,
+    `staging_products_import`.`products_weight`
+        = `staging_products_stockinfo_ag`.`weight`,
+    `staging_products_import`.`products_status`
+        = IF(`staging_products_stockinfo_ag`.`cantsell`=1,0,1),
+    `staging_products_import`.`master_categories_id`=5000,
+    `staging_products_import`.`products_name`
+        = LEFT(`staging_products_stockinfo_ag`.`prod_desc`,64);
+-- }}}
 -- }}}
 --    filter new products from _import [staging_products_new]
 --    mark dropped products as inactive
