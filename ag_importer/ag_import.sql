@@ -749,11 +749,46 @@ WHERE
     `staging_products_import`.`products_description`=`staging_products_live`.`products_description`;
 -- }}}
 --    update product name and description where different, unless manually changed in database
+-- Find name changes for products {{{
+DROP TABLE IF EXISTS `staging_products_rename`;
+CREATE TEMPORARY TABLE `staging_products_rename` (
+    `products_model` VARCHAR(32) NOT NULL DEFAULT '',
+    `products_name`  VARCHAR(64) NOT NULL DEFAULT '',
+    PRIMARY KEY (`products_model`)
+)Engine=MEMORY DEFAULT CHARSET=utf8mb4 AS
+SELECT
+    `products_model`,
+    `staging_products_import`.`products_name`
+FROM `staging_products_import`
+JOIN `staging_products_live`
+    USING (`products_model`)
+WHERE
+    NOT `staging_products_import`.`products_name`
+        = `staging_products_live`.`products_name`
+    AND `staging_products_live`.`products_last_modified` IS NULL;
+-- }}}
+-- Find description changes for products {{{
+DROP TABLE IF EXISTS `staging_products_info`;
+CREATE TEMPORARY TABLE `staging_products_info` (
+    `products_model` VARCHAR(32) NOT NULL DEFAULT '',
+    `products_description` TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (`products_model)
+)Engine=MyISAM DEFAULT CHARSET=utf8mb4 AS
+SELECT
+    `products_model`,
+    `staging_products_import`.`products_description`
+FROM `staging_products_import`
+JOIN `staging_products_live`
+    USING (`products_model`)
+WHERE
+    NOT `staging_products_import`.`products_description`
+        = `staging_products_live`.`products_description`
+    AND `staging_products_live`.`products_last_modified` IS NULL;
+-- }}}
 --    update product status based on import status or quantity
 --    collect anomolies (name/desc too long, missing data, etc.) [staging_products_errors]
 --    insert new products into database
 -- }}}
-
 -- Import product-category links {{{
 --    clone existing data [staging_products_categories_current]
 --    read raw data from CSV file [staging_products_categories_ag {db_import-product-department.csv}]
