@@ -529,6 +529,7 @@ CREATE TABLE `staging_products_import` (
     `products_status`         TINYINT(1) NOT NULL DEFAULT 0,
     `master_categories_id`    INT(11) NOT NULL DEFAULT 0,
     `products_name`           VARCHAR(64) NOT NULL DEFAULT '',
+    `products_title`          VARCHAR(255) NOT NULL DEFAULT '',
     `products_description`    TEXT DEFAULT NULL,
     PRIMARY KEY (`products_model`),
     UNIQUE `idx_staging_products_id_import` (`products_id`),
@@ -551,6 +552,7 @@ INSERT INTO `staging_products_import` (
     `products_status`,
     `master_categories_id`,
     `products_name`,
+    `products_title`,
     `products_description`
 )
 SELECT 
@@ -568,6 +570,7 @@ SELECT
     IF(`cantsell`=1,0,1),
     5000,
     LEFT(`prod_desc`,64),
+    `prod_code`,
     `narrative`
 FROM `staging_products_complete_ag`;
 -- }}}
@@ -582,7 +585,8 @@ INSERT INTO `staging_products_import` (
     `products_weight`,
     `products_status`,
     `master_categories_id`,
-    `products_name`
+    `products_name`,
+    `prodcuts_title`
 )
 SELECT 
     `staging_products_stockinfo_ag`.`prod_code`,
@@ -598,7 +602,8 @@ SELECT
     `staging_products_stockinfo_ag`.`weight`,
     IF(`staging_products_stockinfo_ag`.`cantsell`=1,0,1),
     5000,
-    LEFT(`staging_products_stockinfo_ag`.`prod_desc`,64)
+    LEFT(`staging_products_stockinfo_ag`.`prod_desc`,64),
+    `prod_desc`
 FROM `staging_products_stockinfo_ag`
 LEFT OUTER JOIN `staging_products_complete_ag`
     ON `staging_products_stockinfo_ag`.`prod_code`
@@ -631,7 +636,8 @@ SET
         = IF(`staging_products_stockinfo_ag`.`cantsell`=1,0,1),
     `staging_products_import`.`master_categories_id`=5000,
     `staging_products_import`.`products_name`
-        = LEFT(`staging_products_stockinfo_ag`.`prod_desc`,64);
+        = LEFT(`staging_products_stockinfo_ag`.`prod_desc`,64)
+    `staging_products_import`.`products_title`=`prod_desc`;
 -- }}}
 -- Process the descriptions file, with minimal data available adding any not in the table so far {{{
 INSERT INTO `staging_products_import` (
@@ -672,6 +678,7 @@ CREATE TEMPORARY TABLE `staging_products_new` (
     `products_status`         TINYINT(1) NOT NULL DEFAULT 0,
     `master_categories_id`    INT(11) NOT NULL DEFAULT 0,
     `products_name`           VARCHAR(64) NOT NULL DEFAULT '',
+    `products_title`          VARCHAR(255) NOT NULL DEFAULT '',
     `products_description`    TEXT DEFAULT NULL,
     PRIMARY KEY (`products_model`),
     UNIQUE `idx_staging_products_id_import` (`products_id`),
@@ -692,6 +699,7 @@ SELECT
     `staging_products_import`.`products_status`,
     `staging_products_import`.`master_categories_id`,
     `staging_products_import`.`products_name`,
+    `staging_products_import`.`products_title`,
     `staging_products_import`.`products_description`
 FROM `staging_products_import`
 LEFT OUTER JOIN `staging_products_live`
@@ -754,11 +762,13 @@ DROP TABLE IF EXISTS `staging_products_rename`;
 CREATE TEMPORARY TABLE `staging_products_rename` (
     `products_model` VARCHAR(32) NOT NULL DEFAULT '',
     `products_name`  VARCHAR(64) NOT NULL DEFAULT '',
+    `products_title` VARCHAR(255) NOT NULL DEFAULT '',
     PRIMARY KEY (`products_model`)
 )Engine=MEMORY DEFAULT CHARSET=utf8mb4 AS
 SELECT
     `products_model`,
-    `staging_products_import`.`products_name`
+    `staging_products_import`.`products_name`,
+    `staging_products_import`.`products_title`
 FROM `staging_products_import`
 JOIN `staging_products_live`
     USING (`products_model`)
@@ -789,6 +799,7 @@ WHERE
 --    collect anomolies (name/desc too long, missing data, etc.) [staging_products_errors]
 --    insert new products into database
 -- }}}
+
 -- Import product-category links {{{
 --    clone existing data [staging_products_categories_current]
 --    read raw data from CSV file [staging_products_categories_ag {db_import-product-department.csv}]
