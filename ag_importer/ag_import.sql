@@ -745,6 +745,29 @@ SELECT
     `products_price`
 FROM `staging_products_import`;
 -- }}}
+--    update product status based on import status or quantity
+-- Set product status {{{
+DROP TABLE IF EXISTS `staging_products_status`;
+CREATE TEMPORARY TABLE `staging_products_status` (
+    `products_model` VARCHAR(32) NOT NULL DEFAULT ''
+)Engine=MEMORY DEFAULT CHARSET=utf8mb4;
+INSERT IGNORE INTO `staging_products_status` (
+    `products_model`
+)
+SELECT
+    `products_model`
+FROM `staging_products_import`
+WHERE
+    `products_status`=0 OR
+    NOT `products_quantity` > 0;
+-- Add in products which were dropped by AzureGreen
+INSERT IGNORE INTO `staging_products_status` (
+    `products_model`
+)
+SELECT
+    `products_model`
+FROM `staging_products_dropped`;
+-- }}}
 --    remove unchanged products from _import, ignoring changes in qty, price and weight
 -- Drop unchanged products from further processing {{{
 DELETE `staging_products_import`
@@ -795,7 +818,6 @@ WHERE
         = `staging_products_live`.`products_description`
     AND `staging_products_live`.`products_last_modified` IS NULL;
 -- }}}
---    update product status based on import status or quantity
 --    collect anomolies (name/desc too long, missing data, etc.) [staging_products_errors]
 --    insert new products into database
 -- }}}
