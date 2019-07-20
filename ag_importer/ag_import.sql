@@ -283,7 +283,8 @@ CREATE TABLE IF NOT EXISTS `staging_categories_errors` (
     `issue`          VARCHAR(32) NOT NULL DEFAULT '',
     `note_1`         TEXT DEFAULT NULL,
     `note_2`         TEXT DEFAULT NULL,
-    PRIMARY KEY (`categories_id`),
+    PRIMARY KEY (`categories_id`,`issue`),
+    KEY `idx_staging_categories_errors` (`categories_id`),
     KEY `idx_staging_categories_issues` (`issue`)
 )Engine=MEMORY DEFAULT CHARSET=utf8mb4;
 -- }}}
@@ -819,6 +820,34 @@ WHERE
     AND `staging_products_live`.`products_last_modified` IS NULL;
 -- }}}
 --    collect anomolies (name/desc too long, missing data, etc.) [staging_products_errors]
+-- Record problems found in the new data for products {{{
+-- Table to hold the errors {{{
+CREATE TABLE IF NOT EXISTS `staging_products_errors` (
+    `products_model` VARCHAR(32) NOT NULL DEFAULT '',
+    `issue`          VARCHAR(32) NOT NULL DEFAULT '',
+    `note_1`         TEXT DEFAULT NULL,
+    `note_2`         TEXT DEFAULT NULL,
+    PRIMARY KEY (`products_model`,`issue`),
+    KEY `idx_staging_products_errors` (`products_model`),
+    KEY `idx_staging_products_issues` (`issue`)
+)Engine=MEMORY DEFAULT CHARSET=utf8mb4;
+-- }}}
+-- Report new products with name too long {{{
+INSERT INTO `staging_products_errors` (
+    `products_model`,
+    `issue`,
+    `note_1`,
+    `note_2`
+)
+SELECT
+    `products_model`,
+    'Name too long',
+    `products_name`,
+    `products_title`
+FROM `staging_products_import`
+WHERE NOT `products_name`=`products_title`;
+-- }}}
+-- }}}
 --    insert new products into database
 -- }}}
 
