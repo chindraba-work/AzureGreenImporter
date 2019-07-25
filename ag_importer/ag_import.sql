@@ -286,7 +286,7 @@ CREATE TABLE IF NOT EXISTS `staging_categories_errors` (
     PRIMARY KEY (`categories_id`,`issue`),
     KEY `idx_staging_categories_errors` (`categories_id`),
     KEY `idx_staging_categories_issues` (`issue`)
-)Engine=MEMORY DEFAULT CHARSET=utf8mb4;
+)Engine=MyISAM DEFAULT CHARSET=utf8mb4;
 -- }}}
 -- Report new categories with the name too long {{{
 INSERT INTO `staging_categories_errors` (
@@ -587,7 +587,7 @@ INSERT INTO `staging_products_import` (
     `products_status`,
     `master_categories_id`,
     `products_name`,
-    `prodcuts_title`
+    `products_title`
 )
 SELECT 
     `staging_products_stockinfo_ag`.`prod_code`,
@@ -604,7 +604,7 @@ SELECT
     IF(`staging_products_stockinfo_ag`.`cantsell`=1,0,1),
     5000,
     LEFT(`staging_products_stockinfo_ag`.`prod_desc`,64),
-    `prod_desc`
+    `staging_products_stockinfo_ag`.`prod_desc`
 FROM `staging_products_stockinfo_ag`
 LEFT OUTER JOIN `staging_products_complete_ag`
     ON `staging_products_stockinfo_ag`.`prod_code`
@@ -637,7 +637,7 @@ SET
         = IF(`staging_products_stockinfo_ag`.`cantsell`=1,0,1),
     `staging_products_import`.`master_categories_id`=5000,
     `staging_products_import`.`products_name`
-        = LEFT(`staging_products_stockinfo_ag`.`prod_desc`,64)
+        = LEFT(`staging_products_stockinfo_ag`.`prod_desc`,64),
     `staging_products_import`.`products_title`=`prod_desc`;
 -- }}}
 -- Process the descriptions file, with minimal data available adding any not in the table so far {{{
@@ -806,7 +806,7 @@ DROP TABLE IF EXISTS `staging_products_info`;
 CREATE TEMPORARY TABLE `staging_products_info` (
     `products_model` VARCHAR(32) NOT NULL DEFAULT '',
     `products_description` TEXT NOT NULL DEFAULT '',
-    PRIMARY KEY (`products_model)
+    PRIMARY KEY (`products_model`)
 )Engine=MyISAM DEFAULT CHARSET=utf8mb4 AS
 SELECT
     `products_model`,
@@ -830,7 +830,7 @@ CREATE TABLE IF NOT EXISTS `staging_products_errors` (
     PRIMARY KEY (`products_model`,`issue`),
     KEY `idx_staging_products_errors` (`products_model`),
     KEY `idx_staging_products_issues` (`issue`)
-)Engine=MEMORY DEFAULT CHARSET=utf8mb4;
+)Engine=MyISAM DEFAULT CHARSET=utf8mb4;
 -- }}}
 -- Report new products with name too long {{{
 INSERT INTO `staging_products_errors` (
@@ -846,6 +846,32 @@ SELECT
     `products_title`
 FROM `staging_products_import`
 WHERE NOT `products_name`=`products_title`;
+-- }}}
+-- Report new products with missing desciptions {{{
+INSERT INTO `staging_products_errors` (
+    `products_model`,
+    `issue`
+)
+SELECT
+    `products_model`,
+    'Missing Description'
+FROM `staging_products_import`
+WHERE
+    `products_description` IS NULL OR
+    `products_description`='';
+-- }}}
+-- Report new products with missing names {{{
+INSERT INTO `staging_products_errors` (
+    `products_model`,
+    `issue`
+)
+SELECT
+    `products_model`,
+    'Missing Name'
+FROM `staging_products_import`
+WHERE
+    `products_name` IS NULL OR
+    `products_name`='';
 -- }}}
 -- }}}
 --    insert new products into database
