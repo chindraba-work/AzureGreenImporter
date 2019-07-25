@@ -33,6 +33,7 @@
 
 -- TODO Add the "update" for categories
 --      Force some categories to inactive
+--      Add the "update" for products
 -- }}}
 
 -- Instructions {{{
@@ -880,6 +881,25 @@ WHERE
 -- Import product-category links {{{
 --    clone existing data [staging_products_categories_current]
 --    read raw data from CSV file [staging_products_categories_ag {db_import-product-department.csv}]
+-- Read the raw CSV into the database {{{
+-- The table to read the data into {{{
+DROP TABLE IF EXISTS `staging_products_categories_ag`;
+CREATE TEMPORARY TABLE `staging_products_categories_ag` (
+    `prod_code` VARCHAR(32) NOT NULL,
+    `dept_code` INT(11) NOT NULL,
+    KEY (`prod_code`)
+)Engine=MEMORY DEFAULT CHARSET=utf8mb4;
+-- }}}
+-- Read the AzureGree data file {{{
+LOAD DATA LOCAL
+    INFILE 'db_import-product-department.csv'
+INTO TABLE `staging_products_categories_ag`
+    FIELDS TERMINATED BY ','
+    OPTIONALLY ENCLOSED BY '"'
+    LINES TERMINATED BY '\n'
+    IGNORE 1 LINES;
+-- }}}
+-- }}}
 --    convert data to Zen-Cart standards [staging_products_categories_import]
 --    correct AzureGreen error, changing cat-202 to cat-552 across the board
 --    remove unchanged links from _import
