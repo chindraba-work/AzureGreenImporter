@@ -519,7 +519,7 @@ INTO TABLE `staging_products_description_ag`
 --    convert data to Zen-Cart standards [staging_products_import]
 -- Table for applying the Zen-Cart rules to the products data {{{
 DROP TABLE IF EXISTS `staging_products_import`;
-CREATE TABLE `staging_products_import` (
+CREATE TEMPORARY TABLE `staging_products_import` (
     `products_id`             INT(11) DEFAULT NULL,
     `products_model`          VARCHAR(32) DEFAULT NULL,
     `products_image`          VARCHAR(255) DEFAULT NULL,
