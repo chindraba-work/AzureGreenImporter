@@ -920,6 +920,14 @@ INSERT IGNORE INTO `staging_products_categories_import` (
     `dept_code`
 FROM `staging_products_categories_ag`;
 -- }}}
+-- Add products_id to the table, for known products {{{
+UPDATE `staging_products_categories_import`
+JOIN `staging_products_live`
+    ON `staging_products_live`.`products_model`=`staging_products_categories_import`.`products_model`
+SET `staging_products_categories_import`.`products_id`
+    = `staging_products_live`.`products_id`
+WHERE `staging_products_live`.`products_model` IS NOT NULL;
+-- }}}
 --    correct AzureGreen error, changing cat-202 to cat-552 across the board
 --    remove unchanged links from _import
 --    filter new links from _import [staging_products_categories_new]
