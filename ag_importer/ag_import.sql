@@ -901,6 +901,25 @@ INTO TABLE `staging_products_categories_ag`
 -- }}}
 -- }}}
 --    convert data to Zen-Cart standards [staging_products_categories_import]
+-- Table for applying Zen-Cart rules to the links data {{{
+DROP TABLE IF EXISTS `staging_products_categories_import`;
+CREATE TEMPORARY TABLE `staging_products_categories_import` (
+    `products_model` VARCHAR(32) NOT NULL,
+    `products_id`    INT(11) DEFAULT NULL,
+    `categories_id`  INT(11) NOT NULL,
+    PRIMARY KEY (`products_model`,`categories_id`),
+    KEY `idx_cat_prod_id_import` (`categories_id`,`products_model`)
+) ENGINE=MEMORY DEFAULT CHARSET=utf8mb4;
+-- }}}
+-- Convert the data to Zen-Cart rules {{{
+INSERT IGNORE INTO `staging_products_categories_import` (
+    `products_model`,
+    `categories_id`
+) SELECT
+    `prod_code`,
+    `dept_code`
+FROM `staging_products_categories_ag`;
+-- }}}
 --    correct AzureGreen error, changing cat-202 to cat-552 across the board
 --    remove unchanged links from _import
 --    filter new links from _import [staging_products_categories_new]
