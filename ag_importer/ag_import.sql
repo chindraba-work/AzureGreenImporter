@@ -82,8 +82,10 @@ INTO TABLE `staging_control_dates`
 --   data, making that record 'untouchable' for updates to names and other
 --   description-type information. 
 SELECT
-    @SCRIPT_ADD_DATE:=`add_date`,
-    @SCRIPT_NEW_DATE:=`new_date`
+CONCAT('@SCRIPT_ADD_DATE="',@SCRIPT_ADD_DATE:=`add_date`,'";')
+FROM `staging_control_dates`;
+SELECT
+CONCAT('@SCRIPT_NEW_DATE="',@SCRIPT_NEW_DATE:=`new_date`,'";')
 FROM `staging_control_dates`;
 -- }}}
 
@@ -108,7 +110,9 @@ SELECT
 FROM `categories`
 LEFT OUTER JOIN `categories_description`
     USING (`categories_id`)
-WHERE `language_id`=1
+WHERE
+    `language_id`=1 OR
+    `language_id` IS NULL
 ORDER BY `parent_id`,`categories_description`;
 -- }}}
 --    read raw data from CSV file [staging_categories_ag {db_import-departments.csv}]
@@ -173,7 +177,8 @@ SELECT
     `staging_categories_live`.`categories_id`
 FROM `staging_categories_live`
 LEFT OUTER JOIN `staging_categories_import`
-    ON `staging_categories_live`.`categories_id`=`staging_categories_import`.`categories_id`
+    ON `staging_categories_live`.`categories_id`
+        = `staging_categories_import`.`categories_id`
 WHERE `staging_categories_import`.`categories_id` IS NULL;
 -- }}}
 --    remove unchanged categories from _import
@@ -181,11 +186,15 @@ WHERE `staging_categories_import`.`categories_id` IS NULL;
 DELETE `staging_categories_import`
 FROM `staging_categories_import`
 JOIN `staging_categories_live`
-    ON `staging_categories_import`.`categories_id`=`staging_categories_live`.`categories_id`
+    ON `staging_categories_import`.`categories_id`
+        = `staging_categories_live`.`categories_id`
 WHERE
-    `staging_categories_import`.`categories_description`=`staging_categories_live`.`categories_description` AND
-    `staging_categories_import`.`parent_id`=`staging_categories_live`.`parent_id` AND
-    `staging_categories_import`.`categories_status`=`staging_categories_live`.`categories_status`;
+    `staging_categories_import`.`categories_description`
+        = `staging_categories_live`.`categories_description` AND
+    `staging_categories_import`.`parent_id`
+        = `staging_categories_live`.`parent_id` AND
+    `staging_categories_import`.`categories_status`
+        = `staging_categories_live`.`categories_status`;
 -- }}}
 --    filter new categories from _import [staging_categories_new]
 -- Move new categories to their own table {{{
@@ -201,19 +210,22 @@ CREATE TEMPORARY TABLE `staging_categories_new` (
     UNIQUE `idx_staging_categories_by_parent_new` (`parent_id`,`categories_description`)
 ) Engine=MEMORY DEFAULT CHARSET=utf8mb4 AS
 SELECT
-    `staging_categories_import`.`categories_id`,
-    `staging_categories_import`.`parent_id`,
-    LEFT(`staging_categories_import`.`categories_description`,32),
-    `staging_categories_import`.`categories_description`,
-    `staging_categories_import`.`categories_status`
+    `staging_categories_import`.`categories_id` AS 'categories_id',
+    `staging_categories_import`.`parent_id` AS 'parent_id',
+    LEFT(`staging_categories_import`.`categories_description`,32) AS 'categories_name',
+    `staging_categories_import`.`categories_description` AS 'categories_description',
+    `staging_categories_import`.`categories_status` AS 'categories_status'
 FROM `staging_categories_import`
 LEFT OUTER JOIN `staging_categories_live`
-    ON `staging_categories_import`.`categories_id`=`staging_categories_live`.`categories_id`;
+    ON `staging_categories_import`.`categories_id`
+        = `staging_categories_live`.`categories_id`
+WHERE `staging_categories_live`.`categories_id` IS NULL;
 
 DELETE `staging_categories_import`
 FROM `staging_categories_import`
 JOIN `staging_categories_new`
-    ON `staging_categories_import`.`categories_id`=`staging_categories_new`.`categories_id`;
+    ON `staging_categories_import`.`categories_id`
+        = `staging_categories_new`.`categories_id`;
 -- }}}
 --    find and update parent category changes
 -- Update changes in parent_id {{{
@@ -228,8 +240,10 @@ SELECT
     `staging_categories_import`.`parent_id`
 FROM `staging_categories_import`
 JOIN `staging_categories_live`
-    ON `staging_categories_import`.`categories_id`=`staging_categories_live`.`categories_id`
-WHERE NOT `staging_categories_import`.`parent_id`=`staging_categories_live`.`parent_id`;
+    ON `staging_categories_import`.`categories_id`
+        = `staging_categories_live`.`categories_id`
+WHERE NOT `staging_categories_import`.`parent_id`
+    = `staging_categories_live`.`parent_id`;
 -- }}}
 --    update category names, unless current name was manually adjusted
 -- Update changes in category names {{{
@@ -246,9 +260,11 @@ SELECT
     `staging_categories_import`.`categories_description`
 FROM `staging_categories_import`
 JOIN `staging_categories_live`
-    ON `staging_categories_live`.`categories_id`=`staging_categories_import`.`categories_id`
+    ON `staging_categories_live`.`categories_id`
+        = `staging_categories_import`.`categories_id`
 WHERE NOT
-    `staging_categories_live`.`categories_description`=`staging_categories_import`.`categories_description` AND
+    `staging_categories_live`.`categories_description`
+        = `staging_categories_import`.`categories_description` AND
     `staging_categories_live`.`last_modified` IS NULL;
 -- }}}
 --    verify status of categories
@@ -264,8 +280,10 @@ SELECT
     `staging_categories_import`.`categories_status`
 FROM `staging_categories_import`
 JOIN `staging_categories_live`
-    ON `staging_categories_import`.`categories_id`=`staging_categories_live`.`categories_id`
-WHERE NOT `staging_categories_import`.`categories_status`=`staging_categories_live`.`categories_status`;
+    ON `staging_categories_import`.`categories_id`
+        = `staging_categories_live`.`categories_id`
+WHERE NOT `staging_categories_import`.`categories_status`
+    = `staging_categories_live`.`categories_status`;
 -- }}}
 -- Merge in, and override, the status set because of being dropped by AzureGreen {{{
 INSERT INTO `staging_categories_status` (
@@ -323,6 +341,8 @@ WHERE
         SELECT `categories_id` FROM `staging_categories_new`
         UNION
         SELECT `categories_id` FROM `staging_categories_import`
+        UNION
+        SELECT 0
     );
 -- }}}
 -- Report existing categories with now invalid parent_id values {{{
@@ -420,7 +440,6 @@ WHERE
 --    insert new categories into database
 --    force inactive status for unwanted categories
 -- }}}
-
 
 -- Import product data {{{
 --    clone existing data [staging_products_current]
@@ -901,6 +920,7 @@ INTO TABLE `staging_products_categories_ag`
 -- }}}
 -- }}}
 --    convert data to Zen-Cart standards [staging_products_categories_import]
+-- Apply Zen-Cart rules to the data {{{
 -- Table for applying Zen-Cart rules to the links data {{{
 DROP TABLE IF EXISTS `staging_products_categories_import`;
 CREATE TEMPORARY TABLE `staging_products_categories_import` (
@@ -927,6 +947,7 @@ JOIN `staging_products_live`
 SET `staging_products_categories_import`.`products_id`
     = `staging_products_live`.`products_id`
 WHERE `staging_products_live`.`products_model` IS NOT NULL;
+-- }}}
 -- }}}
 --    correct AzureGreen error, changing cat-202 to cat-552 across the board
 --    remove unchanged links from _import
