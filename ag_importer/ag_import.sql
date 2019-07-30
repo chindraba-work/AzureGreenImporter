@@ -135,8 +135,18 @@ SELECT CONCAT(
 -- Import category data {{{
 --    clone existing data [staging_categories_current]
 -- Convenience view for current data {{{
-CREATE OR REPLACE VIEW `staging_categories_live` AS
-SELECT
+DROP TABLE IF EXISTS `staging_categories_live`;
+CREATE TEMPORARY TABLE `staging_categories_live` (
+    `categories_id`     INT(11) NOT NULL AUTO_INCREMENT,
+    `categories_image`  VARCHAR(255) DEFAULT NULL,
+    `parent_id`         INT(11) NOT NULL DEFAULT 0,
+    `date_added`        DATETIME DEFAULT NULL,
+    `last_modified`     DATETIME DEFAULT NULL,
+    `categories_status` TINYINT(1) NOT NULL DEFAULT 1,
+    `categories_description` TEXT NOT NULL,
+    PRIMARY KEY (`categories_id`)
+)Engine=MyISAM DEFAULT CHARSET=utf8mb4;
+INSERT INTO `staging_categories_live` (
     `categories_id`,
     `categories_image`,
     `parent_id`,
@@ -144,12 +154,24 @@ SELECT
     `last_modified`,
     `categories_status`,
     `categories_description`
+)
+SELECT
+    `categories_id`,
+    `categories_image`,
+    `parent_id`,
+    `date_added`,
+    `last_modified`,
+    `categories_status`,
+    IFNULL(`categories_description`,'')
 FROM `categories`
 LEFT OUTER JOIN `categories_description`
     USING (`categories_id`)
 WHERE
-    `language_id`=1 OR
-    `language_id` IS NULL
+    `categories`.`categories_id` < @INCREMENT_LIMIT AND
+    (
+        `language_id`=1 OR
+        `language_id` IS NULL
+    )
 ORDER BY `parent_id`,`categories_description`;
 -- }}}
 --    read raw data from CSV file [staging_categories_ag {db_import-departments.csv}]
@@ -700,8 +722,26 @@ WHERE `categories_id` IN (29,33,250,278,524,421,6,14,124,396);
 -- Import product data {{{
 --    clone existing data [staging_products_current]
 -- Convenience view for current data {{{
-CREATE OR REPLACE VIEW `staging_products_live` AS
-SELECT
+-- CREATE OR REPLACE VIEW `staging_products_live` AS
+DROP TABLE IF EXISTS `staging_products_live`;
+CREATE TEMPORARY TABLE `staging_products_live` (
+    `products_id`             INT(11) NOT NULL,
+    `products_model`          VARCHAR(32) DEFAULT NULL,
+    `products_image`          VARCHAR(255) DEFAULT NULL,
+    `products_price`          DECIMAL (15,4) NOT NULL DEFAULT 0.0000,
+    `products_quantity`       FLOAT NOT NULL DEFAULT 0,
+    `products_date_added`     DATETIME NOT NULL DEFAULT '0001-01-01 00:00:00',
+    `products_last_modified`  DATETIME DEFAULT NULL,
+    `products_date_available` DATETIME DEFAULT NULL,
+    `products_weight`         FLOAT NOT NULL DEFAULT 0,
+    `products_status`         TINYINT(1) NOT NULL DEFAULT 1,
+    `master_categories_id`    INT(11) NOT NULL DEFAULT 0,
+    `products_name`           VARCHAR(255) NOT NULL DEFAULT '',
+    `products_description`    TEXT DEFAULT NULL,
+    UNIQUE (`products_model`),
+    UNIQUE (`products_id`)
+)Engine=MyISAM DEFAULT CHARSET=utf8mb4;
+INSERT IGNORE INTO `staging_products_live` (
     `products_id`,
     `products_model`,
     `products_image`,
@@ -715,10 +755,43 @@ SELECT
     `master_categories_id`,
     `products_name`,
     `products_description`
+)
+SELECT
+    `products_id`,
+    `products_model`,
+    `products_image`,
+    `products_price`,
+    `products_quantity`,
+    `products_date_added`,
+    `products_last_modified`,
+    `products_date_available`,
+    `products_weight`,
+    `products_status`,
+    `master_categories_id`,
+    IFNULL(`products_name`,''),
+    IFNULL(`products_description`,'')
 FROM `products`
 LEFT OUTER JOIN `products_description`
     USING (`products_id`)
-WHERE `language_id`=1; 
+WHERE
+    `products`.`products_id` < @INCREMENT_LIMIT AND
+    (
+        `language_id`=1 OR
+        `language_id` IS NULL
+    ); 
+-- }}}
+-- A table to generate ID values within the INCREMENT_LIMIT {{{
+DROP TABLE IF EXISTS `staging_products_id`;
+CREATE TEMPORARY TABLE `staging_products_id` (
+    `products_id`    INT(11) NOT NULL AUTO_INCREMENT,
+    `products_model` VARCHAR(32) NOT NULL DEFAULT '',
+    PRIMARY KEY (`products_id`),
+    UNIQUE (`products_model`)
+)Engine=MEMORY DEFAULT CHARSET=utf8mb4 AS
+SELECT
+    `products_id`,
+    `products_model`
+FROM `staging_products_live`;
 -- }}}
 --    read raw data from CSV file [staging_products_complete_ag {db_import-ag_complete_files.csv},
 -- Read the raw CSV files of product data into tables {{{
