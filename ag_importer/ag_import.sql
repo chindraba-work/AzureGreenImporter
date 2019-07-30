@@ -268,7 +268,7 @@ WHERE NOT
     `staging_categories_live`.`last_modified` IS NULL;
 -- }}}
 --    verify status of categories
--- Set status of categories to match the data from AzureGree {{{
+-- Set status of categories to match the data from AzureGreen {{{
 DROP TABLE IF EXISTS `staging_categories_status`;
 CREATE TEMPORARY TABLE `staging_categories_status` (
     `categories_id`     INT(11) NOT NULL,
@@ -437,8 +437,227 @@ WHERE
 -- }}}
 -- }}}
 -- }}}
+-- Apply collected changes to categories tables {{{
 --    insert new categories into database
+-- Add new categories to the database {{{
+-- Add to the categories table {{{
+-- Generate the script to update the remote table {{{
+SELECT
+    CONCAT(
+        ' INSERT IGNORE INTO `categories`',
+        ' SET ',
+        CONCAT_WS(',',
+            CONCAT('`categories_id`=',`categories_id`),
+            CONCAT('`parent_id`=',`parent_id`),
+            CONCAT('`date_added`=',"'",@SCRIPT_ADD_DATE,"'")
+        ),
+        ';'
+    )
+FROM `staging_categories_new`;
+-- }}}
+-- Update the local copy {{{
+INSERT IGNORE INTO `categories` (
+    `categories_id`,
+    `parent_id`,
+    `date_added`
+)
+SELECT
+    `categories_id`,
+    `parent_id`,
+    @SCRIPT_ADD_DATE
+FROM `staging_categories_new`;
+-- }}}
+-- }}}
+-- Add to the categories_description table {{{
+-- Generate the script to update the remote table {{{
+SELECT
+    CONCAT(
+        'INSERT IGNORE INTO `categories_description`',
+        ' SET ',
+        CONCAT_WS(',',
+            CONCAT('`categories_id`=',`categories_id`),
+            CONCAT('`categories_name`="',`categories_name`,'"'),
+            CONCAT('`categories_description`="',`categories_description`,'"')
+        ),
+        ';'
+    )
+FROM `staging_categories_new`;
+-- }}}
+-- Update the local copy {{{
+INSERT IGNORE INTO `categories_description` (
+    `categories_id`,
+    `categories_name`,
+    `categories_description`
+)
+SELECT
+    `categories_id`,
+    `categories_name`,
+    `categories_description`
+FROM `staging_categories_new`;
+-- }}}
+-- }}}
+-- Add to the meta_tags_categories_description table {{{
+-- Generate the script to update the remote table {{{
+SELECT
+    CONCAT(
+        'INSERT IGNORE INTO `meta_tags_categories_description`',
+        ' SET ',
+        CONCAT_WS(',',
+            CONCAT('`categories_id`=',`categories_id`),
+            CONCAT('`metatags_title`="',LEFT(`categories_description`,64),'"'),
+            CONCAT('`metatags_keywords`="',`categories_description`,'"'),
+            CONCAT('`metatags_description`="',`categories_description`,'"')
+        ),
+        ';'
+    )
+FROM `staging_categories_new`;
+-- }}}
+-- Update the local copy {{{
+INSERT IGNORE INTO `meta_tags_categories_description` (
+    `categories_id`,
+    `metatags_title`,
+    `metatags_keywords`,
+    `metatags_description`
+)
+SELECT
+    `categories_id`,
+    LEFT(`categories_description`,64),
+    `categories_description`,
+    `categories_description`
+FROM `staging_categories_new`;
+-- }}}
+-- }}}
+-- }}}
+-- Update parent categories {{{
+-- Generate the script to update the remote table {{{
+SELECT
+    CONCAT(
+        'UPDATE `categories`',
+        ' SET ',
+        CONCAT('`parent_id`=',`parent_id`),
+        ' WHERE `categories_id`=',`categories_id`,
+        ' LIMIT 1;'
+    )
+FROM `staging_categories_parent`;
+-- }}}
+-- Update the local copy {{{
+UPDATE `categories`
+JOIN `staging_categories_parent`
+    ON `staging_categories_parent`.`categories_id`
+        = `categories`.`categories_id`
+SET `categories`.`parent_id`=`staging_categories_parent`.`parent_id`;
+-- }}}
+-- }}}
+-- Update renamed categories {{{
+-- Apply name changes to the description table {{{
+-- Generate the script to update the remote table {{{
+SELECT
+    CONCAT(
+        'UPDATE `categories_description`',
+        ' SET ',
+        CONCAT_WS(',',
+            CONCAT('`categories_name`="',`categories_name`,'"'),
+            CONCAT('`categories_description`="',`categories_description`,'"')
+        ),
+        ' WHERE `categories_id`=',`categories_id`,
+        ' AND `language_id`=1',
+        ' LIMIT 1;'
+    )
+FROM `staging_categories_rename`;
+-- }}}
+-- Update the local copy {{{
+UPDATE `categories_description`
+JOIN `staging_categories_rename`
+    ON `categories_description`.`categories_id`
+        = `staging_categories_rename`.`categories_id`
+SET
+    `categories_description`.`categories_name`
+        = `staging_categories_rename`.`categories_name`,
+    `categories_description`.`categories_description`
+        = `staging_categories_rename`.`categories_description`
+WHERE `categories_description`.`language_id`=1;
+-- }}}
+-- }}}
+-- Apply name changes to the meta_tags table {{{
+-- Generate the script to update the remote table {{{
+SELECT
+    CONCAT(
+        'UPDATE `meta_tags_categories_description`',
+        ' SET ',
+        CONCAT_WS(',',
+            CONCAT('`metatags_title`="',LEFT(`categories_description`,64)),
+            CONCAT('`metatags_keywords`="',`categories_description`),
+            CONCAT('`metatags_descriptionn`="',`categories_description`)
+        ),
+        ' WHERE `language_id`=1',
+        ' LIMIT 1;'
+    )
+FROM `staging_categories_rename`;
+-- }}}
+-- Update the local copy {{{
+UPDATE `meta_tags_categories_description`
+JOIN `staging_categories_rename`
+    ON `meta_tags_categories_description`.`categories_id`
+        = `staging_categories_rename`.`categories_id`
+SET
+    `meta_tags_categories_description`.`metatags_title`
+        = LEFT(`staging_categories_rename`.`categories_description`,64),
+    `meta_tags_categories_description`.`metatags_keywords`
+        = `staging_categories_rename`.`categories_description`,
+    `meta_tags_categories_description`.`metatags_description`
+        = `staging_categories_rename`.`categories_description`
+WHERE `language_id`=1;
+-- }}}
+-- }}}
+-- }}}
+-- Update category status values {{{
+-- Generate the script to update the remote table {{{
+SELECT
+    CONCAT(
+        'UPDATE `categories`',
+        ' SET ',
+        CONCAT_WS(',',
+            CONCAT('`categories_status`=',`staging_categories_status`.`categories_status`)
+        ),
+        ' WHERE `categories_id`=',`staging_categories_status`.`categories_id`,
+        ' LIMIT 1;'
+    )
+FROM `categories`
+JOIN `staging_categories_status`
+    ON `staging_categories_status`.`categories_id`
+        = `categories`.`categories_id`
+WHERE NOT `categories`.`categories_status`
+    = `staging_categories_status`.`categories_status`;
+-- }}}
+-- Update the local copy {{{
+UPDATE `categories`
+JOIN `staging_categories_status`
+    ON `staging_categories_status`.`categories_id`
+        = `categories`.`categories_id`
+SET `categories`.`categories_status`
+    = `staging_categories_status`.`categories_status`
+WHERE NOT `categories`.`categories_status`
+    = `staging_categories_status`.`categories_status`;
+-- }}}
+-- }}}
 --    force inactive status for unwanted categories
+-- Make choosen categories inactive, regardless of AzureGreen's data {{{
+-- Generate the script to update the remote table {{{
+SELECT
+    CONCAT(
+        'UPDATE `categories`',
+        ' SET ',
+        CONCAT('`categories_status`=',0),
+        ' WHERE `categories_id` IN (29,33,250,278,524,421,6,14,124,396);',
+    );
+-- }}}
+-- Update the local copy {{{
+UPDATE `categories`
+SET `categories_status`=0
+WHERE `categories_id` IN (29,33,250,278,524,421,6,14,124,396);
+-- }}}
+-- }}}
+-- }}}
 -- }}}
 
 -- Import product data {{{
