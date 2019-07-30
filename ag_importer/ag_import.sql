@@ -89,6 +89,43 @@ CONCAT('@SCRIPT_NEW_DATE="',@SCRIPT_NEW_DATE:=`new_date`,'";')
 FROM `staging_control_dates`;
 -- }}}
 
+-- Set the AUTO_INCREMENT values for the category and product tables {{{
+-- AzureGreen provides numeric values for categories and any new ones
+-- added to the database need to leave room for them to add more.
+-- Setting a baseline of 100,000 allows for more categories to be added
+-- by AzureGreen than is concievable.
+-- Using the same division point for products will segregate the items
+-- added in this process from those added using the normal process.
+-- Setting the AUTO_INCREMENT value for both tables on the live site
+-- will cause new products and categories to be assigned ID values 
+-- over that value, leaving plenty of room for adding values below
+-- that limit here without fear of collisions between the two. It also
+-- can serve as a limit of what to check. No point in making a category
+-- inactive that's not in the AzureGreen data, when it wasn't one of
+-- their categories to begin with.
+
+-- The remote system needs to be set to follow this limit, the local 
+-- tables actually have to NOT have the value set, as the values added
+-- need to be BELOW that limit 
+SET @INCREMENT_LIMIT=100001;
+
+-- Apply the limit to the remote categories table {{{
+SELECT CONCAT(
+    'ALTER TABLE `categories` AUTO_INCREMENT=',
+    @INCREMENT_LIMIT,
+    ';'
+);
+-- }}}
+-- Apply the limit to the remote products table {{{
+SELECT CONCAT(
+    'ALTER TABLE `products` AUTO_INCREMENT=',
+    @INCREMENT_LIMIT,
+    ';'
+);
+-- }}}
+-- }}}
+
+
 -- TODO: Add the creation of db_import-control_dates.csv to the Bash script.
 --       Only needed if there is a pre-load happening, so that the date on
 --       the pre-load will match the "new" date for new entries in the data
