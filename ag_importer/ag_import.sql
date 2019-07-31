@@ -707,7 +707,7 @@ SELECT
         'UPDATE `categories`',
         ' SET ',
         CONCAT('`categories_status`=',0),
-        ' WHERE `categories_id` IN (29,33,250,278,524,421,6,14,124,396);',
+        ' WHERE `categories_id` IN (29,33,250,278,524,421,6,14,124,396);'
     );
 -- }}}
 -- Update the local copy {{{
@@ -1063,19 +1063,29 @@ JOIN `staging_products_new`
     ON `staging_products_import`.`products_model`
         = `staging_products_new`.`products_model`;
 -- }}}
+-- Add the products_id for existing products from the database {{{
+UPDATE `staging_products_import`
+JOIN `staging_products_live`
+    ON `staging_products_import`.`products_model`
+        = `staging_products_live`.`products_model`
+SET `staging_products_import`.`products_id`
+    = `staging_products_live`.`products_id`;
+-- }}}
 --    mark dropped products as inactive
 -- Missing products become inactive {{{
 DROP TABLE IF EXISTS `staging_products_dropped`;
 CREATE TEMPORARY TABLE `staging_products_dropped` (
-    `products_model`  VARCHAR(32) NOT NULL DEFAULT ''
-)Engine=MEMORY DEFAULT CHARSET=utf8mb4 AS
+    `products_id`  INT(11) NOT NULL
+)Engine=MEMORY AS
 SELECT
-    `staging_products_live`.`products_model`
+    `staging_products_live`.`products_id`
 FROM `staging_products_live`
 LEFT OUTER JOIN `staging_products_import`
     ON `staging_products_live`.`products_model`
         = `staging_products_import`.`products_model`
-WHERE `staging_products_import`.`products_model` IS NULL;
+WHERE
+    `staging_products_import`.`products_model` IS NULL AND
+    `staging_products_live`.`products_status`=1;
 -- }}}
 --    update quantity, weight and price, where available, from import data
 -- Table for the vital statistics for products {{{
@@ -1096,27 +1106,54 @@ SELECT
 FROM `staging_products_import`;
 -- }}}
 --    update product status based on import status or quantity
--- Set product status {{{
-DROP TABLE IF EXISTS `staging_products_status`;
-CREATE TEMPORARY TABLE `staging_products_status` (
-    `products_model` VARCHAR(32) NOT NULL DEFAULT ''
-)Engine=MEMORY DEFAULT CHARSET=utf8mb4;
-INSERT IGNORE INTO `staging_products_status` (
-    `products_model`
+-- Set product status inactive {{{
+DROP TABLE IF EXISTS `staging_products_inactive`;
+CREATE TEMPORARY TABLE `staging_products_inactive` (
+    `products_id` INT(11) NOT NULL
+)Engine=MEMORY;
+INSERT IGNORE INTO `staging_products_inactive` (
+    `products_id`
 )
 SELECT
-    `products_model`
+    `staging_products_import`.`products_id`
 FROM `staging_products_import`
+JOIN `staging_products_live`
+    ON `staging_products_import`.`products_id`
+        = `staging_products_live`.`products_id`
 WHERE
-    `products_status`=0 OR
-    NOT `products_quantity` > 0;
+    `staging_products_live`.`products_status`=1 AND
+    (
+        `staging_products_import`.`products_status`=0 OR
+        NOT `staging_products_import`.`products_quantity` > 0
+    );
 -- Add in products which were dropped by AzureGreen
-INSERT IGNORE INTO `staging_products_status` (
-    `products_model`
+INSERT IGNORE INTO `staging_products_inactive` (
+    `products_id`
 )
 SELECT
-    `products_model`
+    `products_id`
 FROM `staging_products_dropped`;
+-- }}}
+-- Set product status active {{{
+DROP TABLE IF EXISTS `staging_products_active`;
+CREATE TEMPORARY TABLE `staging_products_active` (
+    `products_id` INT(11) NOT NULL
+)Engine=MEMORY;
+INSERT INTO `staging_products_active` (
+    `products_id`
+)
+SELECT
+    `staging_products_import`.`products_id`
+FROM `staging_products_import`
+JOIN `staging_products_live`
+    ON `staging_products_import`.`products_id`
+        = `staging_products_live`.`products_id`
+WHERE
+    `staging_products_live`.`products_status`=0 AND
+    (
+        `staging_products_import`.`products_status`=1 AND
+        `staging_products_import`.`products_quantity` > 0
+    );
 -- }}}
 --    remove unchanged products from _import, ignoring changes in qty, price and weight
 -- Drop unchanged products from further processing {{{
@@ -1133,18 +1170,18 @@ WHERE
 -- Find name changes for products {{{
 DROP TABLE IF EXISTS `staging_products_rename`;
 CREATE TEMPORARY TABLE `staging_products_rename` (
-    `products_model` VARCHAR(32) NOT NULL DEFAULT '',
+    `products_id`    INT(11) NOT NULL,
     `products_name`  VARCHAR(64) NOT NULL DEFAULT '',
     `products_title` VARCHAR(255) NOT NULL DEFAULT '',
-    PRIMARY KEY (`products_model`)
+    PRIMARY KEY (`products_id`)
 )Engine=MEMORY DEFAULT CHARSET=utf8mb4 AS
 SELECT
-    `products_model`,
+    `products_id`,
     `staging_products_import`.`products_name`,
     `staging_products_import`.`products_title`
 FROM `staging_products_import`
 JOIN `staging_products_live`
-    USING (`products_model`)
+    USING (`products_id`)
 WHERE
     NOT `staging_products_import`.`products_name`
         = `staging_products_live`.`products_name`
@@ -1153,16 +1190,16 @@ WHERE
 -- Find description changes for products {{{
 DROP TABLE IF EXISTS `staging_products_info`;
 CREATE TEMPORARY TABLE `staging_products_info` (
-    `products_model` VARCHAR(32) NOT NULL DEFAULT '',
+    `products_id`          INT(111) NOT NULL,
     `products_description` TEXT NOT NULL DEFAULT '',
-    PRIMARY KEY (`products_model`)
+    PRIMARY KEY (`products_id`)
 )Engine=MyISAM DEFAULT CHARSET=utf8mb4 AS
 SELECT
-    `products_model`,
+    `products_id`,
     `staging_products_import`.`products_description`
 FROM `staging_products_import`
 JOIN `staging_products_live`
-    USING (`products_model`)
+    USING (`products_id`)
 WHERE
     NOT `staging_products_import`.`products_description`
         = `staging_products_live`.`products_description`
@@ -1227,8 +1264,38 @@ WHERE
 -- Apply changes from the information files {{{
 -- Update the status of existing products {{{
 -- Generate the script for the remote database {{{
+SELECT
+    IFNULL(CONCAT(
+        'UPDATE `products`',
+        ' SET ',
+        '`products_status`=1',
+        ' WHERE `products_id` IN (',
+        GROUP_CONCAT(`products_id`),
+        ');'
+    ),'')
+FROM `staging_products_active`;
+SELECT
+    IFNULL(CONCAT(
+        'UPDATE `products`',
+        ' SET ',
+        '`products_status`=0',
+        ' WHERE `products_id` IN (',
+        GROUP_CONCAT(`products_id`),
+        ');'
+    ),'')
+FROM `staging_products_inactive`;
 -- }}}
 -- Update the local tables {{{
+UPDATE `products`
+JOIN `staging_products_active`
+    ON `staging_products_active`.`products_id`
+        = `products`.`products_id`
+SET `products_status`=1;
+UPDATE `products`
+JOIN `staging_products_inactive`
+    ON `staging_products_inactive`.`products_id`
+        = `products`.`products_id`
+SET `products_status`=0;
 -- }}}
 -- }}}
 -- Update names and descriptions of existing products {{{
