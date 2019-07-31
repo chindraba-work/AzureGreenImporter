@@ -1093,17 +1093,36 @@ DROP TABLE IF EXISTS `staging_products_vitals`;
 CREATE TEMPORARY TABLE `staging_products_vitals` (
     `products_id`           INT(11) DEFAULT NULL,
     `products_model`        VARCHAR(32) NOT NULL DEFAULT '',
-    `products_quantity`     FLOAT NOT NULL DEFAULT 0,
-    `products_weight`       FLOAT NOT NULL DEFAULT 0,
-    `products_price`        DECIMAL(15,4) NOT NULL DEFAULT 0.0000
+    `products_quantity`     FLOAT DEFAULT NULL,
+    `products_weight`       FLOAT DEFAULT NULL,
+    `products_price`        DECIMAL(15,4) DEFAULT NULL
 )Engine=MEMORY DEFAULT CHARSET=utf8mb4 AS
 SELECT
-    `products_id`,
-    `products_model`,
-    `products_quantity`,
-    `products_weight`,
-    `products_price`
-FROM `staging_products_import`;
+    `staging_products_import`.`products_id`,
+    `staging_products_import`.`products_model`,
+    NULLIF(
+        `staging_products_import`.`products_quantity`,
+        `staging_products_live`.`products_quantity`
+    ) AS 'products_quantity',
+    NULLIF(
+        `staging_products_import`.`products_weight`,
+        `staging_products_live`.`products_weight`
+    ) AS 'products_weight',
+    NULLIF(
+        `staging_products_import`.`products_price`,
+        `staging_products_live`.`products_price`
+    ) AS 'products_price'
+FROM `staging_products_import`
+JOIN `staging_products_live`
+    ON `staging_products_import`.`products_id`
+        = `staging_products_live`.`products_id`
+WHERE 
+    NOT `staging_products_import`.`products_price`
+        = `staging_products_live`.`products_price` OR
+    NOT `staging_products_import`.`products_weight`
+        = `staging_products_live`.`products_weight` OR
+    NOT `staging_products_import`.`products_quantity`
+        = `staging_products_live`.`products_quantity`;
 -- }}}
 --    update product status based on import status or quantity
 -- Set product status inactive {{{
@@ -1306,8 +1325,62 @@ SET `products_status`=0;
 -- }}}
 -- Update the vital stats for existing products {{{
 -- Generate the script for the remote database {{{
+SELECT
+    CONCAT(
+        'UPDATE `products`',
+        ' SET ',
+        CONCAT_WS(',',
+            CONCAT(
+                '`products_quantity`=',
+                IFNULL(`products_quantity`,NULL)
+            ),
+            CONCAT(
+                '`products_weight`=',
+                IFNULL(`products_weight`,NULL)
+            ),
+            CONCAT(
+                '`products_price`=',
+                IFNULL(`products_price`,NULL)
+            ),
+            CONCAT(
+                '`products_price_sorter`=',
+                IFNULL(`products_price`,NULL)
+            )
+        ),
+        ' WHERE `products_id`=',`products_id`,
+        ' LIMIT 1;'
+    )
+FROM `staging_products_vitals`;
 -- }}}
 -- Update the local tables {{{
+UPDATE `products`
+JOIN `staging_products_vitals`
+    ON `staging_products_vitals`.`products_id`
+        = `products`.`products_id`
+JOIN `staging_products_live`
+    ON `staging_products_live`.`products_id`
+        = `products`.`products_id`
+SET
+    `products`.`products_quantity`
+        = IFNULL(
+            `staging_products_vitals`.`products_quantity`,
+            `staging_products_live`.`products_quantity`
+        ),
+    `products`.`products_weight`
+        = IFNULL(
+            `staging_products_vitals`.`products_weight`,
+            `staging_products_live`.`products_weight`
+        ),
+    `products`.`products_price`
+        = IFNULL(
+            `staging_products_vitals`.`products_price`,
+            `staging_products_live`.`products_price`
+        ),
+    `products`.`products_price_sorter`
+        = IFNULL(
+            `staging_products_vitals`.`products_price`,
+            `staging_products_live`.`products_price`
+        );
 -- }}}
 -- }}}
 -- Insert the new products into the database {{{
