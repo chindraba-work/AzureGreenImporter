@@ -1223,7 +1223,54 @@ WHERE
     `products_name`='';
 -- }}}
 -- }}}
---    insert new products into database
+--    insert new products information into the database
+-- Apply changes from the information files {{{
+-- Update the status of existing products {{{
+-- Generate the script for the remote database {{{
+-- }}}
+-- Update the local tables {{{
+-- }}}
+-- }}}
+-- Update names and descriptions of existing products {{{
+-- Generate the script for the remote database {{{
+-- }}}
+-- Update the local tables {{{
+-- }}}
+-- }}}
+-- Update the vital stats for existing products {{{
+-- Generate the script for the remote database {{{
+-- }}}
+-- Update the local tables {{{
+-- }}}
+-- }}}
+-- Insert the new products into the database {{{
+-- Get new ID numbers with the specialized table {{{
+-- Insert product into the table {{{
+-- }}}
+-- Add the new ID numbers to the working table {{{
+-- Set master_categories_id to the temporary import-sorting category
+-- }}}
+-- }}}
+-- Add products to the products table {{{
+-- Update the local tables {{{
+-- }}}
+-- Generate the script for the remote database {{{
+-- }}}
+-- }}}
+-- Add products to the products_description table {{{
+-- Update the local tables {{{
+-- }}}
+-- Generate the script for the remote database {{{
+-- }}}
+-- }}}
+-- Add products to the meta tags table {{{
+-- Update the local tables {{{
+-- }}}
+-- Generate the script for the remote database {{{
+-- }}}
+-- }}}
+-- }}}
+-- }}}
 -- }}}
 
 -- Import product-category links {{{
