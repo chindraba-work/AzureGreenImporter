@@ -644,9 +644,9 @@ SELECT
         'UPDATE `meta_tags_categories_description`',
         ' SET ',
         CONCAT_WS(',',
-            CONCAT('`metatags_title`="',LEFT(`categories_description`,64)),
-            CONCAT('`metatags_keywords`="',`categories_description`),
-            CONCAT('`metatags_descriptionn`="',`categories_description`)
+            CONCAT('`metatags_title`="',LEFT(`categories_description`,64),'"'),
+            CONCAT('`metatags_keywords`="',`categories_description`,'"'),
+            CONCAT('`metatags_descriptionn`="',`categories_description`,'"')
         ),
         ' WHERE `language_id`=1',
         ' LIMIT 1;'
@@ -1187,42 +1187,44 @@ WHERE
 -- }}}
 --    update product name and description where different, unless manually changed in database
 -- Find name changes for products {{{
-DROP TABLE IF EXISTS `staging_products_rename`;
-CREATE TEMPORARY TABLE `staging_products_rename` (
-    `products_id`    INT(11) NOT NULL,
-    `products_name`  VARCHAR(64) NOT NULL DEFAULT '',
-    `products_title` VARCHAR(255) NOT NULL DEFAULT '',
-    PRIMARY KEY (`products_id`)
-)Engine=MEMORY DEFAULT CHARSET=utf8mb4 AS
-SELECT
-    `products_id`,
-    `staging_products_import`.`products_name`,
-    `staging_products_import`.`products_title`
-FROM `staging_products_import`
-JOIN `staging_products_live`
-    USING (`products_id`)
-WHERE
-    NOT `staging_products_import`.`products_name`
-        = `staging_products_live`.`products_name`
-    AND `staging_products_live`.`products_last_modified` IS NULL;
--- }}}
--- Find description changes for products {{{
 DROP TABLE IF EXISTS `staging_products_info`;
 CREATE TEMPORARY TABLE `staging_products_info` (
-    `products_id`          INT(111) NOT NULL,
-    `products_description` TEXT NOT NULL DEFAULT '',
+    `products_id`        INT(11) NOT NULL,
+    `products_label`     VARCHAR(64) DEFAULT NULL,
+    `products_title`     VARCHAR(255) DEFAULT NULL,
+    `products_narrative` TEXT DEFAULT NULL,
     PRIMARY KEY (`products_id`)
 )Engine=MyISAM DEFAULT CHARSET=utf8mb4 AS
 SELECT
     `products_id`,
-    `staging_products_import`.`products_description`
+    `staging_products_import`.`products_name` AS 'products_label',
+    `staging_products_import`.`products_title` AS 'products_title'
 FROM `staging_products_import`
 JOIN `staging_products_live`
     USING (`products_id`)
 WHERE
+    `staging_products_live`.`products_last_modified` IS NULL AND
+    NOT `staging_products_import`.`products_name`
+        = `staging_products_live`.`products_name`;
+-- }}}
+-- Find description changes for products {{{
+INSERT INTO `staging_products_info` (
+    `products_id`,
+    `products_narrative`
+)
+SELECT
+    `products_id`,
+    `staging_products_import`.`products_description` AS 'products_narrative'
+FROM `staging_products_import`
+JOIN `staging_products_live`
+    USING (`products_id`)
+WHERE
+    `staging_products_live`.`products_last_modified` IS NULL AND
     NOT `staging_products_import`.`products_description`
         = `staging_products_live`.`products_description`
-    AND `staging_products_live`.`products_last_modified` IS NULL;
+ON DUPLICATE KEY UPDATE
+    `products_narrative`
+        = `staging_products_import`.`products_description`;
 -- }}}
 --    collect anomolies (name/desc too long, missing data, etc.) [staging_products_errors]
 -- Record problems found in the new data for products {{{
@@ -1318,9 +1320,72 @@ SET `products_status`=0;
 -- }}}
 -- }}}
 -- Update names and descriptions of existing products {{{
+-- Update the products_description table {{{
 -- Generate the script for the remote database {{{
+SELECT
+    CONCAT(
+        'UPDATE `products_description`',
+        ' SET ',
+        CONCAT_WS(',',
+            CONCAT('`products_name`="',`products_label`,'"'),
+            CONCAT('`products_description`="',`products_narrative`,'"')
+        ),
+        ' WHERE `products_id`=',`products_id`,
+        ' LIMIT 1;'
+    )
+FROM `staging_products_info`;
 -- }}}
--- Update the local tables {{{
+-- Update the local table {{{
+UPDATE `products_description`
+JOIN `staging_products_info`
+    ON `staging_products_info`.`products_id`
+        = `products_description`.`products_id`
+SET 
+    `products_description`.`products_name`=IFNULL(
+        `staging_products_info`.`products_label`,
+        `products_description`.`products_name`
+    ),
+    `products_description`.`products_description`=IFNULL(
+        `staging_products_info`.`products_narrative`,
+        `products_description`.`products_description`
+    );
+-- }}}
+-- }}}
+-- Update the meta_tags table {{{
+-- Generate the script for the remote database {{{
+SELECT
+    CONCAT(
+        'UPDATE `meta_tags_products_description`',
+        ' SET ',
+        CONCAT_WS(',',
+            CONCAT('`metatags_title`="',`products_title`,'"'),
+            CONCAT('`metatags_keywords`="',`products_narrative`,'"'),
+            CONCAT('`metatags_description`="',`products_narrative`,'"')
+        ),
+        ' WHERE `products_id`=',`products_id`,
+        ' LIMIT 1;'
+    )
+FROM `staging_products_info`;
+-- }}}
+-- Update the local table {{{
+UPDATE `meta_tags_products_description`
+JOIN `staging_products_info`
+    ON `staging_products_info`.`products_id`
+        = `meta_tags_products_description`.`products_id`
+SET
+    `meta_tags_products_description`.`metatags_title`=IFNULL(
+        `staging_products_info`.`products_title`,
+        `meta_tags_products_description`.`metatags_title`
+    ),
+    `meta_tags_products_description`.`metatags_keywords`=IFNULL(
+        `staging_products_info`.`products_narrative`,
+        `meta_tags_products_description`.`metatags_keywords`
+    ),
+    `meta_tags_products_description`.`metatags_description`=IFNULL(
+        `staging_products_info`.`products_narrative`,
+        `meta_tags_products_description`.`metatags_description`
+    );
+-- }}}
 -- }}}
 -- }}}
 -- Update the vital stats for existing products {{{
