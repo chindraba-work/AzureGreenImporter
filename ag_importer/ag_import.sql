@@ -1714,8 +1714,52 @@ SET `staging_placement_import`.`products_id`
 WHERE `staging_products_live`.`products_model` IS NOT NULL;
 -- }}}
 -- Find placements which have been dropped by AzureGreen {{{
+DROP TABLE IF EXISTS `staging_placement_dropped`;
+CREATE TEMPORARY TABLE `staging_placement_dropped` (
+    `products_id`   INT(11) NOT NULL,
+    `categories_id` INT(11) NOT NULL,
+    INDEX (`products_id`)
+)Engine=MEMORY;
+INSERT IGNORE INTO `staging_placement_dropped` (
+    `products_id`,
+    `categories_id`
+)
+SELECT
+    `staging_placement_live`.`products_id`,
+    `staging_placement_live`.`categories_id`
+FROM `staging_placement_live`
+LEFT OUTER JOIN `staging_placement_import`
+    ON `staging_placement_live`.`products_id`
+        = `staging_placement_import`.`products_id`
+    AND `staging_placement_live`.`categories_id`
+        = `staging_placement_import`.`categories_id`
+WHERE
+    `staging_placement_import`.`products_id` IS NULL AND
+    `staging_placement_import`.`categories_id` IS NULL;
 -- }}}
 -- Find placements which have been added by AzureGreen {{{
+DROP TABLE IF EXISTS `staging_placement_added`;
+CREATE TEMPORARY TABLE `staging_placement_added` (
+    `products_id`   INT(11) NOT NULL,
+    `categories_id` INT(11) NOT NULL,
+    INDEX (`products_id`)
+)Engine=MEMORY;
+INSERT IGNORE INTO `staging_placement_added (
+    `products_id`,
+    `categories_id`
+)
+SELECT
+    `staging_placement_import`.`products_id`,
+    `staging_placement_import`.`categories_id`
+FROM `staging_placement_import`
+LEFT OUTER JOIN `staging_placement_live`
+    ON `staging_placement_import`.`products_id`
+        = `staging_placement_live`.`products_id`
+    AND `staging_placement_import`.`categories_id`
+        = `staging_placement_live`.`categories_id`
+WHERE
+    `staging_placement_live`.`products_id` IS NULL AND
+    `staging_placement_live`.`categories_id` IS NULL;
 -- }}}
 -- }}}
 --    correct AzureGreen error, changing cat-202 to cat-552 across the board
