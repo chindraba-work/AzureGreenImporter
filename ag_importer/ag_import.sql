@@ -1762,9 +1762,76 @@ WHERE
     `staging_placement_live`.`categories_id` IS NULL;
 -- }}}
 -- }}}
+-- Apply changes from the imported data {{{
+-- Remove placements dropped by AzureGreen {{{
+-- Generate script for remote database {{{
+SELECT
+    CONCAT(
+        'DELETE FROM `products_to_categories`',
+        ' WHERE ',
+        CONCAT_WS(' AND',
+            CONCAT('`products_id`=',`products_id`),
+            CONCAT('`categories_id`=',`categoried_id`)
+        ),
+        ';'
+    )
+FROM `staging_placement_dropped`;
+-- }}}
+-- Update local table {{{
+DELETE `products_to_categories`
+FROM `products_to_categories`
+JOIN `staging_placement_dropped`
+    ON `products_to_categories`.`products_id`
+        = `staging_placement_dropped`.`products_id`
+    AND `products_to_categories`.`categories_id`
+        = `staging_placement_dropped`.`categories_id`;
+-- }}}
+-- }}}
+-- Add new placements added by AzureGreen {{{
+-- Generate script for remote database {{{
+SELECT
+    CONCAT(
+        'INSERT IGNORE INTO `products_to_categories`',
+        ' (`products_id`,`categories_id`)',
+        ' VALUES (',
+        CONCAT_WS(
+            `products_id`,
+            `categories_id`
+        ),
+        ');'
+    )
+FROM `staging_placement_added`;
+-- }}}
+-- Update local table {{{
+INSERT IGNORE INTO `products_to_categories` (
+    `products_id`,
+    `categories_id`
+)
+SELECT
+    `products_id`,
+    `categories_id`
+FROM `staging_placement_added`;
+-- }}}
+-- }}}
+-- }}}
+--    collect anomolies (product in non-leaf category) [staging_placement_errors] 
+-- Record errors found in the processing of placement data {{{
+-- Table for collecting the errors in the placement data {{{
+CREATE TABLE IF NOT EXIST `staging_placement_errors` (
+    `categories_id`  INT(11) NOT NULL,
+    `products_id`    INT(11) NOT NULL,
+    `issue`          VARCHAR(32) NOT NULL DEFAULT 'Placement ERROR',
+    `products_model` VARCHAR(32) NOT NULL DEFAULT '',
+    `note_1`         TEXT DEFAULT NULL,
+    `note_2`         TEXT DEFAULT NULL,
+    PRIMARY KEY (`categories_id`,`products_id`,`issue`),
+    INDEX (`categories_id`,`products_id`),
+    INDEX (`categories_id`,`products_model`)
+)Engine=MyISAM DEFAULT CHARSET=utf8mb4;
+-- }}}
+-- }}}
 --    correct AzureGreen error, changing cat-202 to cat-552 across the board
 --    remove unchanged links from _import
---    collect anomolies (product in non-leaf category) [staging_placement_errors] 
 --    insert new links into database
 --    verify master of all products is still in link table
 --       for dropped categories: set master to "missing", and add to anomolies
