@@ -1610,12 +1610,36 @@ FROM `staging_products_new`;
 -- }}}
 
 -- Import product-category links {{{
---    clone existing data [staging_products_categories_current]
+--    clone existing data [staging_placement_live]
+-- Create a convenience view of the current data {{{
+DROP TABLE IF EXISTS `staging_placement_live`;
+CREATE TEMPORARY TABLE `staging_placement_live` (
+    `products_id`    INT(11) NOT NULL,
+    `categories_id`  INT(11) NOT NULL,
+    `products_model` VARCHAR(32) NOT NULL,
+    PRIMARY KEY (`products_id`,`categories_id`),
+    UNIQUE (`products_model`,`categories_id`),
+    INDEX (`products_id`),
+    INDEX (`products_model`)
+)Engine=MEMORY DEFAULT CHARSET=utf8mb4 AS
+SELECT
+    `products_to_categories`.`products_id` AS 'products_id',
+    `products_to_categories`.`categories_id` AS 'categories_id',
+    `staging_products_live`.`products_model` AS 'products_model'
+FROM `products_to_categories`
+LEFT OUTER JOIN `staging_products_live`
+    ON `products_to_categories`.`products_id`
+        = `staging_products_live`.`products_id`
+WHERE
+    `products_to_categories`.`categories_id` < @INCREMENT_BASE AND
+    `products_to_categories`.`products_id` < @INCREMENT_BASE
+ORDER BY `products_model`,`categories_id`;
+-- }}}
 --    read raw data from CSV file [staging_products_categories_ag {db_import-product-department.csv}]
 -- Read the raw CSV into the database {{{
 -- The table to read the data into {{{
-DROP TABLE IF EXISTS `staging_products_categories_ag`;
-CREATE TEMPORARY TABLE `staging_products_categories_ag` (
+DROP TABLE IF EXISTS `staging_placement_ag`;
+CREATE TEMPORARY TABLE `staging_placement_ag` (
     `prod_code` VARCHAR(32) NOT NULL,
     `dept_code` INT(11) NOT NULL,
     KEY (`prod_code`)
@@ -1624,47 +1648,47 @@ CREATE TEMPORARY TABLE `staging_products_categories_ag` (
 -- Read the AzureGree data file {{{
 LOAD DATA LOCAL
     INFILE 'db_import-product-department.csv'
-INTO TABLE `staging_products_categories_ag`
+INTO TABLE `staging_placment_ag`
     FIELDS TERMINATED BY ','
     OPTIONALLY ENCLOSED BY '"'
     LINES TERMINATED BY '\n'
     IGNORE 1 LINES;
 -- }}}
 -- }}}
---    convert data to Zen-Cart standards [staging_products_categories_import]
+--    convert data to Zen-Cart standards [staging_placement_import]
 -- Apply Zen-Cart rules to the data {{{
 -- Table for applying Zen-Cart rules to the links data {{{
-DROP TABLE IF EXISTS `staging_products_categories_import`;
-CREATE TEMPORARY TABLE `staging_products_categories_import` (
+DROP TABLE IF EXISTS `staging_placement_import`;
+CREATE TEMPORARY TABLE `staging_placement_import` (
     `products_model` VARCHAR(32) NOT NULL,
     `products_id`    INT(11) DEFAULT NULL,
     `categories_id`  INT(11) NOT NULL,
     PRIMARY KEY (`products_model`,`categories_id`),
-    KEY `idx_cat_prod_id_import` (`categories_id`,`products_model`)
+    UNIQUE (`categories_id`,`products_id`)
 ) ENGINE=MEMORY DEFAULT CHARSET=utf8mb4;
 -- }}}
 -- Convert the data to Zen-Cart rules {{{
-INSERT IGNORE INTO `staging_products_categories_import` (
+INSERT IGNORE INTO `staging_placement_import` (
     `products_model`,
     `categories_id`
 ) SELECT
     `prod_code`,
     `dept_code`
-FROM `staging_products_categories_ag`;
+FROM `staging_placement_ag`;
+-- }}}
 -- }}}
 -- Add products_id to the table, for known products {{{
-UPDATE `staging_products_categories_import`
+UPDATE `staging_placement_import`
 JOIN `staging_products_live`
-    ON `staging_products_live`.`products_model`=`staging_products_categories_import`.`products_model`
-SET `staging_products_categories_import`.`products_id`
+    ON `staging_products_live`.`products_model`
+        = `staging_placement_import`.`products_model`
+SET `staging_placement_import`.`products_id`
     = `staging_products_live`.`products_id`
 WHERE `staging_products_live`.`products_model` IS NOT NULL;
 -- }}}
--- }}}
 --    correct AzureGreen error, changing cat-202 to cat-552 across the board
 --    remove unchanged links from _import
---    filter new links from _import [staging_products_categories_new]
---    collect anomolies (product in non-leaf category) [staging_products_categories_errors] 
+--    collect anomolies (product in non-leaf category) [staging_placement_errors] 
 --    insert new links into database
 --    verify master of all products is still in link table
 --       for dropped categories: set master to "missing", and add to anomolies
@@ -1672,20 +1696,3 @@ WHERE `staging_products_live`.`products_model` IS NOT NULL;
 -- }}}
 
 
--- Generate script to use in the admin area Install SQL Patch page {{{
---    INSERT for products
---               products_descriptions
---               meta_tags_products_descriptions
---               categories
---               categories_descriptions
---               meta_tags_categories_descriptions
---               products_to_categories
---    UPDATE for products
---               products_descriptions
---               meta_tags_products_descriptions
---               categories
---               categories_descriptions
---               meta_tags_categories_descriptions
---               products_to_categories
---    DELETE FROM products_to_categories
--- }}}
