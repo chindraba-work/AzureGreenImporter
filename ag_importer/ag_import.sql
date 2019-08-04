@@ -107,24 +107,38 @@ FROM `staging_control_dates`;
 -- The remote system needs to be set to follow this limit, the local 
 -- tables actually have to NOT have the value set, as the values added
 -- need to be BELOW that limit 
-SET @INCREMENT_LIMIT=100001;
+SET @INCREMENT_BASE=100001;
 
 -- Apply the limit to the remote categories table {{{
 SELECT CONCAT(
     'ALTER TABLE `categories` AUTO_INCREMENT=',
-    @INCREMENT_LIMIT,
+    @INCREMENT_BASE,
     ';'
 );
 -- }}}
 -- Apply the limit to the remote products table {{{
 SELECT CONCAT(
     'ALTER TABLE `products` AUTO_INCREMENT=',
-    @INCREMENT_LIMIT,
+    @INCREMENT_BASE,
     ';'
 );
 -- }}}
 -- }}}
 
+-- Set the categories_id for some control categories {{{
+-- A category to place all new products into until they can be sorted out
+SET @IMPORT_CATEGORY=99999;
+-- A category to place products into if a problem is found with the imported data
+SET @ISSUES_CATEGORY=99998;
+-- }}}
+
+-- The `manufacturers_id` to be used for AzureGreen products {{{
+-- This requires that AzureGreen has been added to the database as a
+-- manufacturer. For stores which will only ever carry AzureGreen
+-- products this could be set to NULL. It is safer, at very little
+-- cost in admin time, to add them to the database anyway.
+SET @AZUREGREEN_ID=1;
+-- }}}
 
 -- TODO: Add the creation of db_import-control_dates.csv to the Bash script.
 --       Only needed if there is a pre-load happening, so that the date on
@@ -167,7 +181,7 @@ FROM `categories`
 LEFT OUTER JOIN `categories_description`
     USING (`categories_id`)
 WHERE
-    `categories`.`categories_id` < @INCREMENT_LIMIT AND
+    `categories`.`categories_id` < @INCREMENT_BASE AND
     (
         `language_id`=1 OR
         `language_id` IS NULL
@@ -774,13 +788,13 @@ FROM `products`
 LEFT OUTER JOIN `products_description`
     USING (`products_id`)
 WHERE
-    `products`.`products_id` < @INCREMENT_LIMIT AND
+    `products`.`products_id` < @INCREMENT_BASE AND
     (
         `language_id`=1 OR
         `language_id` IS NULL
     ); 
 -- }}}
--- A table to generate ID values within the INCREMENT_LIMIT {{{
+-- A table to generate ID values below the INCREMENT_BASE {{{
 DROP TABLE IF EXISTS `staging_products_id`;
 CREATE TEMPORARY TABLE `staging_products_id` (
     `products_id`    INT(11) NOT NULL AUTO_INCREMENT,
@@ -1451,27 +1465,144 @@ SET
 -- Insert the new products into the database {{{
 -- Get new ID numbers with the specialized table {{{
 -- Insert product into the table {{{
+INSERT INTO `staging_products_id` (
+    `products_model`
+)
+SELECT
+    `products_model`
+FROM `staging_products_new`;
 -- }}}
 -- Add the new ID numbers to the working table {{{
 -- Set master_categories_id to the temporary import-sorting category
+UPDATE `staging_products_new`
+JOIN `staging_products_id`
+    ON `staging_products_new`.`products_model`
+        = `staging_products_id`.`products_model`
+SET
+    `staging_products_new`.`products_id`
+        = `staging_products_id`.`products_id`,
+    `staging_products_new`.`master_categories_id`
+        = @IMPORT_CATEGORY;
 -- }}}
 -- }}}
 -- Add products to the products table {{{
--- Update the local tables {{{
--- }}}
 -- Generate the script for the remote database {{{
+SELECT
+    CONCAT(
+        'INSERT IGNORE INTO `products`'
+        ' SET ',
+        CONCAT_WS(',',
+            CONCAT('`products_id`=',`products_id`),
+            CONCAT('`products_quantity`=',`products_quantity`),
+            CONCAT('`products_model`="',`products_model`,'"'),
+            CONCAT('`products_image`="',`products_image`,'"'),
+            CONCAT('`products_price`=',`products_price`),
+            CONCAT('`products_date_added`="',`products_date_added`,'"'),
+            CONCAT('`products_date_available`="',@SCRIPT_NEW_DATE,'"'),
+            CONCAT('`products_weight`=',`products_weight`),
+            CONCAT('`products_status`=',`products_status`),
+            CONCAT('`manufacturers_id`=',@AZUREGREEN_ID),
+            CONCAT('`products_price_sorter`=',`products_weight`),
+            CONCAT('`master_categories_id`=',`master_categories_id`)
+        ),
+        ';'
+    )
+FROM `staging_products_new`;
+-- }}}
+-- Update the local tables {{{
+INSERT IGNORE INTO `products` (
+    `products_id`,
+    `products_quantity`,
+    `products_model`,
+    `products_image`,
+    `products_price`,
+    `products_date_added`,
+    `products_date_available`,
+    `products_weight`,
+    `products_status`,
+    `manufacturers_id`,
+    `products_price_sorter`,
+    `master_categories_id`
+)
+SELECT
+    `products_id`,
+    `products_quantity`,
+    `products_model`,
+    `products_image`,
+    `products_price`,
+    `products_date_added`,
+    @SCRIPT_NEW_DATE,
+    `products_weight`,
+    `products_status`,
+    @AZUREGREEN_ID,
+    `products_price`,
+    `master_categories_id`
+FROM `staging_products_new`;
 -- }}}
 -- }}}
 -- Add products to the products_description table {{{
--- Update the local tables {{{
--- }}}
 -- Generate the script for the remote database {{{
+SELECT
+    CONCAT(
+        'INSERT IGNORE INTO `products_description`',
+        ' SET ',
+        CONCAT_WS(',',
+            CONCAT('`products_id`=',`products_id`),
+            '`language_id`=1',
+            CONCAT('`products_name`="',`products_name`,'"'),
+            CONCAT('`products_description`="',`products_description`,'"')
+        ),
+        ";"
+    )
+FROM `staging_products_new`;
+-- }}}
+-- Update the local tables {{{
+INSERT IGNORE INTO `products_description` (
+    `products_id`,
+    `language_id`,
+    `products_name`,
+    `products_description`
+)
+SELECT
+    `products_id`,
+    1,
+    `products_name`,
+    `products_description`
+FROM `staging_products_new`;
 -- }}}
 -- }}}
 -- Add products to the meta tags table {{{
--- Update the local tables {{{
--- }}}
 -- Generate the script for the remote database {{{
+SELECT
+    CONCAT(
+        'INSERT IGNORE INTO `meta_tags_products_description`',
+        ' SET ',
+        CONCAT_WS(',',
+            CONCAT('`products_id`=',`products_id`),
+            '`language_id`=1',
+            CONCAT('`metatags_title`="',`products_title`,'"'),
+            CONCAT('`metatags_keywords`="',`products_description`,'"'),        
+            CONCAT('`metatags_description`="',`products_description`,'"')
+        ),
+        ";"
+    )
+FROM `staging_products_new`;
+-- }}}
+-- Update the local tables {{{
+INSERT IGNORE INTO `meta_tags_products_description` (
+    `products_id`,
+    `language_id`,
+    `metatags_title`,
+    `metatags_keywords`,
+    `metatags_description`
+)
+SELECT
+    `products_id`,
+    1,
+    `products_title`,
+    `products_description`,
+    `products_description`
+FROM `staging_products_new`;
 -- }}}
 -- }}}
 -- }}}
