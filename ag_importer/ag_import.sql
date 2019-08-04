@@ -1677,7 +1677,34 @@ INSERT IGNORE INTO `staging_placement_import` (
 FROM `staging_placement_ag`;
 -- }}}
 -- }}}
--- Add products_id to the table, for known products {{{
+-- Sift placement records into new and dropped placements and new products {{{
+-- Move placement records for new products to their own table {{{
+DROP TABLE IF EXISTS `staging_placement_new`;
+CREATE TEMPORARY TABLE `staging_placement_new` (
+    `products_model` VARCHAR(32) NOT NULL,
+    `categories_id`  INT(11) NOT NULL,
+    `products_id`    INT(11) DEFAULT NULL,
+    PRIMARY KEY (`products_model`,`categories_id`),
+    INDEX (`products_model`),
+    UNIQUE (`categories_id`,`products_id`)
+)Engine=MEMORY DEFAULT CHARSET=utf8mb4;
+INSERT IGNORE INTO `staging_placement_new` (
+    `products_model`,
+    `categories_id`
+)
+SELECT
+    `products_model`,
+    `categories_id`
+FROM `staging_placement_import`
+WHERE `products_model` IN (
+    SELECT DISTINCT `products_model` FROM `staging_products_new`
+);
+DELETE FROM `staging_placement_import`
+WHERE `products_model` IN (
+    SELECT DISTINCT `products_model` FROM `staging_products_new`
+);
+-- }}}
+-- Add products_id to the table, for remaining products {{{
 UPDATE `staging_placement_import`
 JOIN `staging_products_live`
     ON `staging_products_live`.`products_model`
@@ -1685,6 +1712,11 @@ JOIN `staging_products_live`
 SET `staging_placement_import`.`products_id`
     = `staging_products_live`.`products_id`
 WHERE `staging_products_live`.`products_model` IS NOT NULL;
+-- }}}
+-- Find placements which have been dropped by AzureGreen {{{
+-- }}}
+-- Find placements which have been added by AzureGreen {{{
+-- }}}
 -- }}}
 --    correct AzureGreen error, changing cat-202 to cat-552 across the board
 --    remove unchanged links from _import
