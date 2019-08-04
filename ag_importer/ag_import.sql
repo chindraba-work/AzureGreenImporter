@@ -127,9 +127,19 @@ SELECT CONCAT(
 
 -- Set the categories_id for some control categories {{{
 -- A category to place all new products into until they can be sorted out
-SET @IMPORT_CATEGORY=99999;
+SELECT 
+    @IMPORT_CATEGORY:=`categories_id`
+FROM `categories_description`
+WHERE
+    `language_id`=1 AND
+    `categories_name`='AzureGreen Imports';
 -- A category to place products into if a problem is found with the imported data
-SET @ISSUES_CATEGORY=99998;
+SELECT 
+    @ISSUE_CATEGORY:=`categories_id`
+FROM `categories_description`
+WHERE
+    `language_id`=1 AND
+    `categories_name`='AzureGreen Issues';
 -- }}}
 
 -- The `manufacturers_id` to be used for AzureGreen products {{{
@@ -1648,7 +1658,7 @@ CREATE TEMPORARY TABLE `staging_placement_ag` (
 -- Read the AzureGree data file {{{
 LOAD DATA LOCAL
     INFILE 'db_import-product-department.csv'
-INTO TABLE `staging_placment_ag`
+INTO TABLE `staging_placement_ag`
     FIELDS TERMINATED BY ','
     OPTIONALLY ENCLOSED BY '"'
     LINES TERMINATED BY '\n'
@@ -1690,15 +1700,17 @@ CREATE TEMPORARY TABLE `staging_placement_new` (
 )Engine=MEMORY DEFAULT CHARSET=utf8mb4;
 INSERT IGNORE INTO `staging_placement_new` (
     `products_model`,
-    `categories_id`
+    `categories_id`,
+    `products_id`
 )
 SELECT
-    `products_model`,
-    `categories_id`
+    `staging_placement_import`.`products_model`,
+    `staging_placement_import`.`categories_id`,
+    `staging_products_new`.`products_id`
 FROM `staging_placement_import`
-WHERE `products_model` IN (
-    SELECT DISTINCT `products_model` FROM `staging_products_new`
-);
+JOIN `staging_products_new`
+    ON `staging_products_new`.`products_model`
+        =`staging_placement_import`.`products_model`;
 DELETE FROM `staging_placement_import`
 WHERE `products_model` IN (
     SELECT DISTINCT `products_model` FROM `staging_products_new`
@@ -1744,7 +1756,7 @@ CREATE TEMPORARY TABLE `staging_placement_added` (
     `categories_id` INT(11) NOT NULL,
     INDEX (`products_id`)
 )Engine=MEMORY;
-INSERT IGNORE INTO `staging_placement_added (
+INSERT IGNORE INTO `staging_placement_added` (
     `products_id`,
     `categories_id`
 )
@@ -1771,7 +1783,7 @@ SELECT
         ' WHERE ',
         CONCAT_WS(' AND',
             CONCAT('`products_id`=',`products_id`),
-            CONCAT('`categories_id`=',`categoried_id`)
+            CONCAT('`categories_id`=',`categories_id`)
         ),
         ';'
     )
@@ -1814,10 +1826,51 @@ FROM `staging_placement_added`;
 -- }}}
 -- }}}
 -- }}}
+-- Apply new product placements {{{
+-- Add the sorting category for each new product to the placement data {{{
+INSERT IGNORE INTO `staging_placement_new` (
+    `categories_id`,
+    `products_id`,
+    `products_model`
+)
+SELECT
+    @IMPORT_CATEGORY,
+    `products_id`,
+    `products_model`
+FROM `staging_products_new`;
+-- }}}
+-- Add the new product placements to the database {{{
+-- Generate the script for the remote database {{{
+SELECT
+    CONCAT(
+        'INSERT IGNORE INTO `products_to_categories`',
+        ' SET ',
+        CONCAT_WS(',',
+            CONCAT('`products_id`=',`products_id`),
+            CONCAT('`categories_id`=',`categories_id`)
+        ),
+        ' LIMIT 1;'
+    )
+FROM `staging_placement_new`
+ORDER BY `products_model`,`categories_id`;
+-- }}}
+-- Update the local table {{{
+INSERT IGNORE INTO `products_to_categories` (
+    `products_id`,
+    `categories_id`
+)
+SELECT
+    `products_id`,
+    `categories_id`
+FROM `staging_placement_new`
+ORDER BY `products_model`,`categories_id`;
+-- }}}
+-- }}}
+-- }}}
 --    collect anomolies (product in non-leaf category) [staging_placement_errors] 
 -- Record errors found in the processing of placement data {{{
 -- Table for collecting the errors in the placement data {{{
-CREATE TABLE IF NOT EXIST `staging_placement_errors` (
+CREATE TABLE IF NOT EXISTS `staging_placement_errors` (
     `categories_id`  INT(11) NOT NULL,
     `products_id`    INT(11) NOT NULL,
     `issue`          VARCHAR(32) NOT NULL DEFAULT 'Placement ERROR',
