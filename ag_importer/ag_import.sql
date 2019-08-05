@@ -78,10 +78,10 @@ INTO TABLE `staging_control_dates`
 --   data, making that record 'untouchable' for updates to names and other
 --   description-type information. 
 SELECT
-CONCAT('@SCRIPT_ADD_DATE="',@SCRIPT_ADD_DATE:=`add_date`,'";')
+CONCAT('SET @SCRIPT_ADD_DATE="',@SCRIPT_ADD_DATE:=`add_date`,'";')
 FROM `staging_control_dates`;
 SELECT
-CONCAT('@SCRIPT_NEW_DATE="',@SCRIPT_NEW_DATE:=`new_date`,'";')
+CONCAT('SET @SCRIPT_NEW_DATE="',@SCRIPT_NEW_DATE:=`new_date`,'";')
 FROM `staging_control_dates`;
 -- }}}
 
@@ -124,7 +124,7 @@ SELECT CONCAT(
 -- Set the categories_id for some control categories {{{
 -- A category to place all new products into until they can be sorted out
 SELECT 
-    @IMPORT_CATEGORY:=`categories_id`
+CONCAT('SET @IMPORT_CATEGORY=',@IMPORT_CATEGORY:=`categories_id`,';')
 FROM `categories_description`
 WHERE
     `language_id`=1 AND
@@ -143,7 +143,8 @@ WHERE
 -- manufacturer. For stores which will only ever carry AzureGreen
 -- products this could be set to NULL. It is safer, at very little
 -- cost in admin time, to add them to the database anyway.
-SET @AZUREGREEN_ID=1;
+SELECT
+CONCAT('SET @AZUREGREEN_ID=',@AZUREGREEN_ID:=1,';');
 -- }}}
 
 -- Tables to hold discovered errors in the imported data {{{
@@ -537,7 +538,7 @@ WHERE
     `parent_table`.`categories_status`=0;
 -- }}}
 -- }}}
--- }}}za
+-- }}}
 -- Apply collected changes to categories tables {{{
 --    insert new categories into database
 -- Add new categories to the database {{{
@@ -759,7 +760,7 @@ WHERE `categories_id` IN (29,33,250,278,524,421,6,14,124,396);
 -- }}}
 -- }}}
 -- }}}
--- }}}za
+-- }}}
 
 -- Import product data {{{
 --    clone existing data [staging_products_current]
@@ -1282,7 +1283,7 @@ SELECT
     'Name too long',
     `products_name`,
     `products_title`
-FROM `staging_products_import`
+FROM `staging_products_new`
 WHERE NOT `products_name`=`products_title`;
 -- }}}
 -- Report new products with missing desciptions {{{
@@ -1863,7 +1864,7 @@ SELECT
             CONCAT('`products_id`=',`products_id`),
             CONCAT('`categories_id`=',`categories_id`)
         ),
-        ' LIMIT 1;'
+        ';'
     )
 FROM `staging_placement_new`
 ORDER BY `products_model`,`categories_id`;
