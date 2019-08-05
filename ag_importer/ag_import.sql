@@ -49,6 +49,19 @@
 -- The site may have a prefix on the table names, that is not handled
 -- here. The Import SQL Patch expects table names to NOT have that on
 -- the table names and will add it to them when it executes the script.
+-- 
+-- Before this script is used the first time the realted tables need
+-- to be empty. Most important is that there be no categories or
+-- products in the database. The installation script sets the values
+-- for auto_increment in both cases, and the AzureGreen imports are
+-- intended to have ID values below that value and anything added by
+-- the admin using in-built tools will have ID values above that. The
+-- installer also adds the needed categories, hopefully near the start
+-- of the sequence, for recording imports and errors.
+--
+-- This script is intended to be called by the shell script which does
+-- the pre-processing of the AzureGreen data files, creating the data
+-- files used by this script.
 -- }}}
 
 -- Setup the work area {{{
