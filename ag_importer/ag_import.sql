@@ -30,10 +30,6 @@
 #        USA.                                                          #
 #                                                                      #
 ##################################################################### */
-
--- TODO Add the "update" for categories
---      Force some categories to inactive
---      Add the "update" for products
 -- }}}
 
 -- Instructions {{{
@@ -187,11 +183,6 @@ CREATE TABLE IF NOT EXISTS `staging_placement_errors` (
 )Engine=MyISAM DEFAULT CHARSET=utf8mb4;
 -- }}}
 -- }}}
-
--- TODO: Add the creation of db_import-control_dates.csv to the Bash script.
---       Only needed if there is a pre-load happening, so that the date on
---       the pre-load will match the "new" date for new entries in the data
---       Could be useful, as well, to customize the "add" date for entries.
 -- }}}
 
 -- Import category data {{{
@@ -1889,6 +1880,36 @@ FROM `staging_placement_new`
 ORDER BY `products_model`,`categories_id`;
 -- }}}
 -- }}}
+-- Set the master category for new products, wehre possible {{{
+-- Use an external, generated, script to set the master category for new products {{{
+SOURCE ./master_categories.sql
+-- }}}
+-- Find and fix any new products not handled by the generated script {{{
+UPDATE `products`
+JOIN `products_to_categories`
+    ON `products`.`products_id`
+        = `products_to_categories`.`products_id`
+SET `master_categories_id`=`categories_id`
+WHERE
+    `master_categories_id`=@IMPORT_CATEGORY AND
+    NOT `categories_id`=@IMPORT_CATEGORY;
+-- }}}
+-- Generate the script to replicate the changes in the remote database {{{
+SELECT 
+    CONCAT(
+        'UPDATE `products`',
+        ' SET ',
+        CONCAT_WS(',',
+            CONCAT('`master_categories_id`=',`products`.`master_categories_id`)
+        ),
+        ' WHERE `products_id`=',`products`.`products_id`,
+        ' LIMIT 1;'
+    )
+FROM `products`
+JOIN `staging_products_new`
+    USING (`products_id`);
+-- }}}
+-- }}}
 -- }}}
 -- }}}
 --    collect anomolies (product in non-leaf category) [staging_placement_errors] 
@@ -1912,6 +1933,24 @@ JOIN `products`
 WHERE `categories_id` IN (
     SELECT DISTINCT `parent_id` FROM `categories`
 );
+-- }}}
+-- Items without a sane master category {{{
+INSERT IGNORE INTO `staging_placement_errors` (
+    `categories_id`,
+    `products_id`,
+    `products_model`,
+    `note_1`,
+    `issue`
+)
+SELECT
+    `master_categories_id`,
+    `products_id`,
+    `products_model`,
+    `products_name`,
+    'No category assigned'
+FROM `products`
+NATURAL JOIN `products_description`
+WHERE `master_categories_id`=@IMPORT_CATEGORY;
 -- }}}
 -- }}}
 --    correct AzureGreen error, changing cat-202 to cat-552 across the board
