@@ -150,6 +150,44 @@ WHERE
 SET @AZUREGREEN_ID=1;
 -- }}}
 
+-- Tables to hold discovered errors in the imported data {{{
+-- Table to hold the errors in categories data {{{
+CREATE TABLE IF NOT EXISTS `staging_categories_errors` (
+    `categories_id`  INT(11) NOT NULL,
+    `issue`          VARCHAR(32) NOT NULL DEFAULT '',
+    `note_1`         TEXT DEFAULT NULL,
+    `note_2`         TEXT DEFAULT NULL,
+    PRIMARY KEY (`categories_id`,`issue`),
+    KEY `idx_staging_categories_errors` (`categories_id`),
+    KEY `idx_staging_categories_issues` (`issue`)
+)Engine=MyISAM DEFAULT CHARSET=utf8mb4;
+-- }}}
+-- Table to hold the errors {{{
+CREATE TABLE IF NOT EXISTS `staging_products_errors` (
+    `products_model` VARCHAR(32) NOT NULL DEFAULT '',
+    `issue`          VARCHAR(32) NOT NULL DEFAULT '',
+    `note_1`         TEXT DEFAULT NULL,
+    `note_2`         TEXT DEFAULT NULL,
+    PRIMARY KEY (`products_model`,`issue`),
+    KEY `idx_staging_products_errors` (`products_model`),
+    KEY `idx_staging_products_issues` (`issue`)
+)Engine=MyISAM DEFAULT CHARSET=utf8mb4;
+-- }}}
+-- Table for collecting the errors in the placement data {{{
+CREATE TABLE IF NOT EXISTS `staging_placement_errors` (
+    `categories_id`  INT(11) NOT NULL,
+    `products_id`    INT(11) NOT NULL,
+    `issue`          VARCHAR(32) NOT NULL DEFAULT 'Placement ERROR',
+    `products_model` VARCHAR(32) NOT NULL DEFAULT '',
+    `note_1`         TEXT DEFAULT NULL,
+    `note_2`         TEXT DEFAULT NULL,
+    PRIMARY KEY (`categories_id`,`products_id`,`issue`),
+    INDEX (`categories_id`,`products_id`),
+    INDEX (`categories_id`,`products_model`)
+)Engine=MyISAM DEFAULT CHARSET=utf8mb4;
+-- }}}
+-- }}}
+
 -- TODO: Add the creation of db_import-control_dates.csv to the Bash script.
 --       Only needed if there is a pre-load happening, so that the date on
 --       the pre-load will match the "new" date for new entries in the data
@@ -379,17 +417,6 @@ ON DUPLICATE KEY UPDATE `categories_status`=0;
 -- }}}
 --    collect list of anomolies (name too long, missing parent, active child-inactive parent, etc.) [staging_categories_errors]
 -- Record problems encountered in the data {{{
--- Table to hold the errors {{{
-CREATE TABLE IF NOT EXISTS `staging_categories_errors` (
-    `categories_id`  INT(11) NOT NULL,
-    `issue`          VARCHAR(32) NOT NULL DEFAULT '',
-    `note_1`         TEXT DEFAULT NULL,
-    `note_2`         TEXT DEFAULT NULL,
-    PRIMARY KEY (`categories_id`,`issue`),
-    KEY `idx_staging_categories_errors` (`categories_id`),
-    KEY `idx_staging_categories_issues` (`issue`)
-)Engine=MyISAM DEFAULT CHARSET=utf8mb4;
--- }}}
 -- Report new categories with the name too long {{{
 INSERT INTO `staging_categories_errors` (
     `categories_id`,
@@ -519,7 +546,7 @@ WHERE
     `parent_table`.`categories_status`=0;
 -- }}}
 -- }}}
--- }}}
+-- }}}za
 -- Apply collected changes to categories tables {{{
 --    insert new categories into database
 -- Add new categories to the database {{{
@@ -741,7 +768,7 @@ WHERE `categories_id` IN (29,33,250,278,524,421,6,14,124,396);
 -- }}}
 -- }}}
 -- }}}
--- }}}
+-- }}}za
 
 -- Import product data {{{
 --    clone existing data [staging_products_current]
@@ -1252,17 +1279,6 @@ ON DUPLICATE KEY UPDATE
 -- }}}
 --    collect anomolies (name/desc too long, missing data, etc.) [staging_products_errors]
 -- Record problems found in the new data for products {{{
--- Table to hold the errors {{{
-CREATE TABLE IF NOT EXISTS `staging_products_errors` (
-    `products_model` VARCHAR(32) NOT NULL DEFAULT '',
-    `issue`          VARCHAR(32) NOT NULL DEFAULT '',
-    `note_1`         TEXT DEFAULT NULL,
-    `note_2`         TEXT DEFAULT NULL,
-    PRIMARY KEY (`products_model`,`issue`),
-    KEY `idx_staging_products_errors` (`products_model`),
-    KEY `idx_staging_products_issues` (`issue`)
-)Engine=MyISAM DEFAULT CHARSET=utf8mb4;
--- }}}
 -- Report new products with name too long {{{
 INSERT INTO `staging_products_errors` (
     `products_model`,
@@ -1747,7 +1763,12 @@ LEFT OUTER JOIN `staging_placement_import`
         = `staging_placement_import`.`categories_id`
 WHERE
     `staging_placement_import`.`products_id` IS NULL AND
-    `staging_placement_import`.`categories_id` IS NULL;
+    `staging_placement_import`.`categories_id` IS NULL AND
+    `staging_placement_live`.`products_id` NOT IN (
+        SELECT DISTINCT `products_id`
+        FROM `staging_placement_errors`
+        WHERE `issue`='Non-leaf category placement'
+    );
 -- }}}
 -- Find placements which have been added by AzureGreen {{{
 DROP TABLE IF EXISTS `staging_placement_added`;
@@ -1771,7 +1792,10 @@ LEFT OUTER JOIN `staging_placement_live`
         = `staging_placement_live`.`categories_id`
 WHERE
     `staging_placement_live`.`products_id` IS NULL AND
-    `staging_placement_live`.`categories_id` IS NULL;
+    `staging_placement_live`.`categories_id` IS NULL AND
+    `staging_placement_import`.`categories_id` NOT IN (
+        SELECT DISTINCT `parent_id` FROM `categories`
+    );
 -- }}}
 -- }}}
 -- Apply changes from the imported data {{{
@@ -1825,7 +1849,6 @@ SELECT
 FROM `staging_placement_added`;
 -- }}}
 -- }}}
--- }}}
 -- Apply new product placements {{{
 -- Add the sorting category for each new product to the placement data {{{
 INSERT IGNORE INTO `staging_placement_new` (
@@ -1867,20 +1890,28 @@ ORDER BY `products_model`,`categories_id`;
 -- }}}
 -- }}}
 -- }}}
+-- }}}
 --    collect anomolies (product in non-leaf category) [staging_placement_errors] 
 -- Record errors found in the processing of placement data {{{
--- Table for collecting the errors in the placement data {{{
-CREATE TABLE IF NOT EXISTS `staging_placement_errors` (
-    `categories_id`  INT(11) NOT NULL,
-    `products_id`    INT(11) NOT NULL,
-    `issue`          VARCHAR(32) NOT NULL DEFAULT 'Placement ERROR',
-    `products_model` VARCHAR(32) NOT NULL DEFAULT '',
-    `note_1`         TEXT DEFAULT NULL,
-    `note_2`         TEXT DEFAULT NULL,
-    PRIMARY KEY (`categories_id`,`products_id`,`issue`),
-    INDEX (`categories_id`,`products_id`),
-    INDEX (`categories_id`,`products_model`)
-)Engine=MyISAM DEFAULT CHARSET=utf8mb4;
+-- Items placed in categories which are not leaf nodes {{{
+INSERT IGNORE INTO `staging_placement_errors` (
+    `categories_id`,
+    `products_id`,
+    `products_model`,
+    `issue`
+)
+SELECT
+    `categories_id`,
+    `products`.`products_id`,
+    `products`.`products_model`,
+    'Non-leaf category placement'
+FROM `products_to_categories`
+JOIN `products`
+    ON `products`.`products_id`
+        = `products_to_categories`.`products_id`
+WHERE `categories_id` IN (
+    SELECT DISTINCT `parent_id` FROM `categories`
+);
 -- }}}
 -- }}}
 --    correct AzureGreen error, changing cat-202 to cat-552 across the board
