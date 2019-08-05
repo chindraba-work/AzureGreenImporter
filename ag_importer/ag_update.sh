@@ -132,10 +132,12 @@ ARCHIVE_LIST="A B C D EB EP ES F G H I J L M N O R S U V W"
 # The range of years for which complete Excel sheets are available
 YEAR_FIRST="2018"
 YEAR_LAST="$(date --utc +%Y)"
-# The Excel sheets showing cummulative data, useful for user intervension
+# The Excel sheets showing cummulative data, useful for user intervention
 CHANGE_LIST="changes isbn"
 # The regularly updated CSV files, most of the data comes from here
 PRODUCT_DATA_LIST="Descriptions StockInfo Departments Product-Department AG_Complete_Files"
+# The prioritized list of preferred master categories
+MASTER_CAT_LIST="56 234 115 18 318 200 201 505 376 243 238 198 308 128 21 71 520 551 100 484 104 133 95 61 86 134 544 62 475 533 177 263 326 440 527 528 460 459 432 504 447 83 34 286 472 16 464 538 374 471 506 494 546 474 473 333 142 103 147 389 293 347 363 47 336 351 40 516 530 448 296 337 352 387 379 138 97 332 340 84 67 468 322 55 343 208 205 206 248 265 207 482 481 209 321 280 418 164 539 167 96 373 346 217 549 526 349 362 388 461 232 542 287 181 532 540 218 199 466 264 269 281 541 552 2 442 223 174 390 537 141 203 204 242 75 469 175 323 430 496 545 117 226 339 353 501 146 297 341 355 342 277 114 105 487 152 399 249 35 329 436 236 508 169 182 20 525 113 499 283 193 89 457 483 498 495 180 369 497 550 514 513 515 259 52 51 384 53 54 268 111 325 143 403 76 394 503 302 398 480 140 345 359 368 455 465 502 48 380 307 510 375 486 386 395 68 179 324 500 479 112 304 441 121 118 156 155 162 151 63 31 377 300 275 224 334 306 225 523 295 77 521 299 49 511 512 78 79 168 518 294 65 298 517 305 522 303 519 64 66 69 407 535 547 534 548 415 485 94 126 311 370 137 536 144 88 330 60 543 122 125 282 101 157 364 274"
 
 # Find the directory of this script. Needed to access the SQL script.
 code_path=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
@@ -297,6 +299,25 @@ function flatten_image_dir {
         dir_is_empty "$dir" && { rmdir "$dir" || : ; } || mv "$dir" "$dir_orphan";
     done
     popd >/dev/null
+}
+
+function generate_categories_sql {
+    # Create the SQL file to assign master categories to new products
+    rm "db_import-master_categories.sql"
+    for category_id in $MASTER_CAT_LIST; do
+        cat <<FIXER >>"db_import-master_categories.sql"
+UPDATE \`products\`
+JOIN \`products_to_categories\`
+    ON \`products_to_categories\`.\`products_id\`
+        = \`products\`.\`products_id\`
+SET \`master_categories_id\`=$category_id
+WHERE
+    \`master_categories_id\`=@IMPORT_CATEGORY AND
+    \`categories_id\`=$category_id;
+
+FIXER
+
+    done;
 }
 
 function keep_larger {
@@ -479,6 +500,7 @@ function update_database {
     [ $pre_loaded ] && DB_NEW_DATE="$(echo $pre_load_id | perl -pe 's/\./-/g')"' 21:13:08'
     [ $pre_loaded ] || DB_ADD_DATE="$DB_NEW_DATE"
     echo "'"$DB_ADD_DATE"','"$DB_NEW_DATE"'" > db_import-control_dates.sql
+    generate_categories_sql 
     mysql -u $STORE_DB_USER -p$STORE_DB_PASS -D $STORE_DB_NAME < "$code_path/ag_import.sql" > "$dir_stores/inventory_patch-$PATCH_DATE.sql"
     popd > /dev/null
     cp -p "$dir_stores/inventory_patch-$PATCH_DATE.sql" "$dir_data"

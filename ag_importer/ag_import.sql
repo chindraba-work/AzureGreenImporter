@@ -131,7 +131,7 @@ WHERE
     `categories_name`='AzureGreen Imports';
 -- A category to place products into if a problem is found with the imported data
 SELECT 
-    @ISSUE_CATEGORY:=`categories_id`
+CONCAT('SET @ISSUE_CATEGORY=',@ISSUE_CATEGORY:=`categories_id`,';')
 FROM `categories_description`
 WHERE
     `language_id`=1 AND
@@ -1883,7 +1883,7 @@ ORDER BY `products_model`,`categories_id`;
 -- }}}
 -- Set the master category for new products, wehre possible {{{
 -- Use an external, generated, script to set the master category for new products {{{
-SOURCE ./master_categories.sql
+SOURCE ./db_import-master_categories.sql
 -- }}}
 -- Find and fix any new products not handled by the generated script {{{
 UPDATE `products`
