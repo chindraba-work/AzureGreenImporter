@@ -502,8 +502,9 @@ function update_database {
     echo "'"$DB_ADD_DATE"','"$DB_NEW_DATE"'" > db_import-control_dates.sql
     generate_categories_sql 
     mysql -u $STORE_DB_USER -p$STORE_DB_PASS -D $STORE_DB_NAME < "$code_path/ag_import.sql" > "$dir_stores/inventory_patch-$PATCH_DATE.sql"
+    gzip --keep "$dir_stores/inventory_path-$PATCH_DATE.sql"
     popd > /dev/null
-    cp -p "$dir_stores/inventory_patch-$PATCH_DATE.sql" "$dir_data"
+    cp -p "$dir_stores/inventory_patch-$PATCH_DATE.sql*" "$dir_data"
     echo "Importing of data complete."
 }
 
