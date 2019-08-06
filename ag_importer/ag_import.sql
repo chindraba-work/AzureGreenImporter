@@ -1,4 +1,3 @@
--- Comment block {{{
 /* #####################################################################
 #                                                                      #
 #  AzureGreenImporter: Import AzureGreen data into a Zen-Cart store    #
@@ -30,9 +29,8 @@
 #        USA.                                                          #
 #                                                                      #
 ##################################################################### */
--- }}}
 
--- Instructions {{{
+-- Instructions:
 -- To use this it is necessary to have a copy/backup from the live server
 -- of the following tables:
 --     categories
@@ -62,27 +60,9 @@
 -- This script is intended to be called by the shell script which does
 -- the pre-processing of the AzureGreen data files, creating the data
 -- files used by this script.
--- }}}
 
--- Setup the work area {{{
--- Table for control dates {{{
-DROP TEMPORARY TABLE IF EXISTS `staging_control_dates`;
-CREATE TEMPORARY TABLE `staging_control_dates` (
-    `add_date` DATETIME NOT NULL DEFAULT '2018-10-31 21:13:08',
-    `new_date` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP 
-) ENGINE=MEMORY DEFAULT CHARSET=utf8mb4;
--- }}}
-
--- Read the control dates in control_dates.csv {{{
-LOAD DATA LOCAL
-    INFILE './db_import-control_dates.csv'
-INTO TABLE `staging_control_dates`
-    FIELDS TERMINATED BY ',' 
-    OPTIONALLY ENCLOSED BY '"' 
-    LINES TERMINATED BY '\n';
--- }}}
-
--- Set the global control dates for later use {{{
+-- Setup the work area:
+-- Set the global control dates for later use
 -- add_date will be used for the 'created' type fields in the tables
 -- new_date will be used for data_available on new products.
 --   if all cases, the 'modified' type fields will be untouched, allowing
@@ -90,15 +70,25 @@ INTO TABLE `staging_control_dates`
 --   indicating that the store (under admin control) made changes to the 
 --   data, making that record 'untouchable' for updates to names and other
 --   description-type information. 
+DROP TEMPORARY TABLE IF EXISTS `staging_control_dates`;
+CREATE TEMPORARY TABLE `staging_control_dates` (
+    `add_date` DATETIME NOT NULL DEFAULT '2018-10-31 21:13:08',
+    `new_date` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP 
+) ENGINE=MEMORY DEFAULT CHARSET=utf8mb4;
+LOAD DATA LOCAL
+    INFILE './db_import-control_dates.csv'
+INTO TABLE `staging_control_dates`
+    FIELDS TERMINATED BY ',' 
+    OPTIONALLY ENCLOSED BY '"' 
+    LINES TERMINATED BY '\n';
 SELECT
 CONCAT('SET @SCRIPT_ADD_DATE="',@SCRIPT_ADD_DATE:=`add_date`,'";')
 FROM `staging_control_dates`;
 SELECT
 CONCAT('SET @SCRIPT_NEW_DATE="',@SCRIPT_NEW_DATE:=`new_date`,'";')
 FROM `staging_control_dates`;
--- }}}
 
--- Set the AUTO_INCREMENT values for the category and product tables {{{
+-- Set the AUTO_INCREMENT values for the category and product tables
 -- AzureGreen provides numeric values for categories and any new ones
 -- added to the database need to leave room for them to add more.
 -- Setting a baseline of 100,000 allows for more categories to be added
@@ -117,24 +107,18 @@ FROM `staging_control_dates`;
 -- tables actually have to NOT have the value set, as the values added
 -- need to be BELOW that limit 
 SET @INCREMENT_BASE=100001;
-
--- Apply the limit to the remote categories table {{{
 SELECT CONCAT(
     'ALTER TABLE `categories` AUTO_INCREMENT=',
     @INCREMENT_BASE,
     ';'
 );
--- }}}
--- Apply the limit to the remote products table {{{
 SELECT CONCAT(
     'ALTER TABLE `products` AUTO_INCREMENT=',
     @INCREMENT_BASE,
     ';'
 );
--- }}}
--- }}}
 
--- Set the categories_id for some control categories {{{
+-- Set the categories_id for some control categories
 -- A category to place all new products into until they can be sorted out
 SELECT 
 CONCAT('SET @IMPORT_CATEGORY=',@IMPORT_CATEGORY:=`categories_id`,';')
@@ -149,19 +133,16 @@ FROM `categories_description`
 WHERE
     `language_id`=1 AND
     `categories_name`='AzureGreen Issues';
--- }}}
 
--- The `manufacturers_id` to be used for AzureGreen products {{{
+-- The `manufacturers_id` to be used for AzureGreen products
 -- This requires that AzureGreen has been added to the database as a
 -- manufacturer. For stores which will only ever carry AzureGreen
 -- products this could be set to NULL. It is safer, at very little
 -- cost in admin time, to add them to the database anyway.
 SELECT
 CONCAT('SET @AZUREGREEN_ID=',@AZUREGREEN_ID:=1,';');
--- }}}
 
--- Tables to hold discovered errors in the imported data {{{
--- Table to hold the errors in categories data {{{
+-- Tables to hold discovered errors in the imported data
 CREATE TABLE IF NOT EXISTS `staging_categories_errors` (
     `categories_id`  INT(11) NOT NULL,
     `issue`          VARCHAR(32) NOT NULL DEFAULT '',
@@ -171,8 +152,6 @@ CREATE TABLE IF NOT EXISTS `staging_categories_errors` (
     KEY `idx_staging_categories_errors` (`categories_id`),
     KEY `idx_staging_categories_issues` (`issue`)
 )Engine=MyISAM DEFAULT CHARSET=utf8mb4;
--- }}}
--- Table to hold the errors {{{
 CREATE TABLE IF NOT EXISTS `staging_products_errors` (
     `products_model` VARCHAR(32) NOT NULL DEFAULT '',
     `issue`          VARCHAR(32) NOT NULL DEFAULT '',
@@ -182,8 +161,6 @@ CREATE TABLE IF NOT EXISTS `staging_products_errors` (
     KEY `idx_staging_products_errors` (`products_model`),
     KEY `idx_staging_products_issues` (`issue`)
 )Engine=MyISAM DEFAULT CHARSET=utf8mb4;
--- }}}
--- Table for collecting the errors in the placement data {{{
 CREATE TABLE IF NOT EXISTS `staging_placement_errors` (
     `categories_id`  INT(11) NOT NULL,
     `products_id`    INT(11) NOT NULL,
@@ -195,13 +172,8 @@ CREATE TABLE IF NOT EXISTS `staging_placement_errors` (
     INDEX (`categories_id`,`products_id`),
     INDEX (`categories_id`,`products_model`)
 )Engine=MyISAM DEFAULT CHARSET=utf8mb4;
--- }}}
--- }}}
--- }}}
 
--- Import category data {{{
---    clone existing data [staging_categories_current]
--- Convenience view for current data {{{
+-- Import category data
 DROP TABLE IF EXISTS `staging_categories_live`;
 CREATE TEMPORARY TABLE `staging_categories_live` (
     `categories_id`     INT(11) NOT NULL AUTO_INCREMENT,
@@ -240,9 +212,6 @@ WHERE
         `language_id` IS NULL
     )
 ORDER BY `parent_id`,`categories_description`;
--- }}}
---    read raw data from CSV file [staging_categories_ag {db_import-departments.csv}]
--- The table to read the CSV into {{{
 DROP TABLE IF EXISTS `staging_categories_ag`;
 CREATE TEMPORARY TABLE `staging_categories_ag` (
     `dept_name`  VARCHAR(255) NOT NULL,
@@ -253,8 +222,6 @@ CREATE TEMPORARY TABLE `staging_categories_ag` (
     INDEX (`dept_code`),
     INDEX (`parent_id`)
 ) Engine=MEMORY DEFAULT CHARSET=utf8mb4;
--- }}}
--- Read the AzureGreen data file {{{
 LOAD DATA LOCAL
     INFILE 'db_import-departments.csv'
 INTO TABLE `staging_categories_ag`
@@ -265,9 +232,6 @@ INTO TABLE `staging_categories_ag`
 -- Do some cleanup of AzureGreen data
 DELETE FROM `staging_categories_ag`
 WHERE `dept_code` < 0;
--- }}}
---    convert data to Zen-Cart standards [staging_categories_import]
--- Table for applying Zen-Cart rules to the categories data {{{
 DROP TABLE IF EXISTS `staging_categories_import`;
 CREATE TEMPORARY TABLE `staging_categories_import` (
     `categories_id`           INT(11) NOT NULL,
@@ -278,8 +242,6 @@ CREATE TEMPORARY TABLE `staging_categories_import` (
     KEY `idx_staging_categories_name_import` (`categories_description`),
     UNIQUE `idx_staging_categories_by_parent_import` (`parent_id`,`categories_description`)
 ) Engine=MEMORY DEFAULT CHARSET=utf8mb4;
--- }}}
--- Convert the data to Zen-Cart rules {{{
 INSERT INTO `staging_categories_import` (
     `categories_id`,
     `parent_id`,
@@ -292,9 +254,7 @@ INSERT INTO `staging_categories_import` (
     `dept_show`
 FROM `staging_categories_ag`
 ORDER BY `dept_deep`,`parent_id`,`dept_code`;
--- }}}
---    mark dropped categories as inactive
--- Missing categories become inactive {{{
+-- Missing categories become inactive
 DROP TABLE IF EXISTS `staging_categories_dropped`;
 CREATE TEMPORARY TABLE `staging_categories_dropped` (
     `categories_id` INT(11) NOT NULL
@@ -306,9 +266,6 @@ LEFT OUTER JOIN `staging_categories_import`
     ON `staging_categories_live`.`categories_id`
         = `staging_categories_import`.`categories_id`
 WHERE `staging_categories_import`.`categories_id` IS NULL;
--- }}}
---    remove unchanged categories from _import
--- Drop unchanged categories from further processing {{{
 DELETE `staging_categories_import`
 FROM `staging_categories_import`
 JOIN `staging_categories_live`
@@ -321,9 +278,6 @@ WHERE
         = `staging_categories_live`.`parent_id` AND
     `staging_categories_import`.`categories_status`
         = `staging_categories_live`.`categories_status`;
--- }}}
---    filter new categories from _import [staging_categories_new]
--- Move new categories to their own table {{{
 DROP TABLE IF EXISTS `staging_categories_new`;
 CREATE TEMPORARY TABLE `staging_categories_new` (
     `categories_id`           INT(11) NOT NULL,
@@ -352,9 +306,6 @@ FROM `staging_categories_import`
 JOIN `staging_categories_new`
     ON `staging_categories_import`.`categories_id`
         = `staging_categories_new`.`categories_id`;
--- }}}
---    find and update parent category changes
--- Update changes in parent_id {{{
 DROP TABLE IF EXISTS `staging_categories_parent`;
 CREATE TEMPORARY TABLE `staging_categories_parent` (
     `categories_id` INT(11) NOT NULL,
@@ -370,9 +321,6 @@ JOIN `staging_categories_live`
         = `staging_categories_live`.`categories_id`
 WHERE NOT `staging_categories_import`.`parent_id`
     = `staging_categories_live`.`parent_id`;
--- }}}
---    update category names, unless current name was manually adjusted
--- Update changes in category names {{{
 DROP TABLE IF EXISTS `staging_categories_rename`;
 CREATE TEMPORARY TABLE `staging_categories_rename` (
     `categories_id`          INT(11) NOT NULL,
@@ -392,9 +340,6 @@ WHERE NOT
     `staging_categories_live`.`categories_description`
         = `staging_categories_import`.`categories_description` AND
     `staging_categories_live`.`last_modified` IS NULL;
--- }}}
---    verify status of categories
--- Set status of categories to match the data from AzureGreen {{{
 DROP TABLE IF EXISTS `staging_categories_status`;
 CREATE TEMPORARY TABLE `staging_categories_status` (
     `categories_id`     INT(11) NOT NULL,
@@ -410,8 +355,6 @@ JOIN `staging_categories_live`
         = `staging_categories_live`.`categories_id`
 WHERE NOT `staging_categories_import`.`categories_status`
     = `staging_categories_live`.`categories_status`;
--- }}}
--- Merge in, and override, the status set because of being dropped by AzureGreen {{{
 INSERT INTO `staging_categories_status` (
     `categories_id`,
     `categories_status`
@@ -419,10 +362,6 @@ INSERT INTO `staging_categories_status` (
 SELECT `categories_id`,0
 FROM `staging_categories_dropped`
 ON DUPLICATE KEY UPDATE `categories_status`=0;
--- }}}
---    collect list of anomolies (name too long, missing parent, active child-inactive parent, etc.) [staging_categories_errors]
--- Record problems encountered in the data {{{
--- Report new categories with the name too long {{{
 INSERT INTO `staging_categories_errors` (
     `categories_id`,
     `issue`,
@@ -436,8 +375,6 @@ SELECT
     `categories_description`
 FROM `staging_categories_new`
 WHERE NOT `categories_name`=`categories_description`;
--- }}}
--- Report new categories with invalid parent_id values {{{
 INSERT INTO `staging_categories_errors` (
     `categories_id`,
     `issue`,
@@ -459,8 +396,6 @@ WHERE
         UNION
         SELECT 0
     );
--- }}}
--- Report existing categories with now invalid parent_id values {{{
 INSERT INTO `staging_categories_errors` (
     `categories_id`,
     `issue`,
@@ -480,9 +415,6 @@ WHERE
         UNION
         SELECT `categories_id` FROM `staging_categories_import`
     );
--- }}}
--- Report active categories which have inactive parents {{{
--- New table categories and new table parents {{{
 INSERT INTO `staging_categories_errors` (
     `categories_id`,
     `issue`,
@@ -498,8 +430,6 @@ JOIN `staging_categories_new` AS `parent_table`
 WHERE 
     `child_table`.`categories_status`=1 AND
     `parent_table`.`categories_status`=0;
--- }}}
--- New table categories and import table parents {{{
 INSERT INTO `staging_categories_errors` (
     `categories_id`,
     `issue`,
@@ -515,8 +445,6 @@ JOIN `staging_categories_import` AS `parent_table`
 WHERE 
     `child_table`.`categories_status`=1 AND
     `parent_table`.`categories_status`=0;
--- }}}
--- Import table categories and new table parents {{{
 INSERT INTO `staging_categories_errors` (
     `categories_id`,
     `issue`,
@@ -532,8 +460,6 @@ JOIN `staging_categories_new` AS `parent_table`
 WHERE 
     `child_table`.`categories_status`=1 AND
     `parent_table`.`categories_status`=0;
--- }}}
--- Import table categories and import table parents {{{
 INSERT INTO `staging_categories_errors` (
     `categories_id`,
     `issue`,
@@ -549,14 +475,8 @@ JOIN `staging_categories_import` AS `parent_table`
 WHERE 
     `child_table`.`categories_status`=1 AND
     `parent_table`.`categories_status`=0;
--- }}}
--- }}}
--- }}}
--- Apply collected changes to categories tables {{{
+-- Apply collected changes to categories tables
 --    insert new categories into database
--- Add new categories to the database {{{
--- Add to the categories table {{{
--- Generate the script to update the remote table {{{
 SELECT
     CONCAT(
         ' INSERT IGNORE INTO `categories`',
@@ -569,8 +489,6 @@ SELECT
         ';'
     )
 FROM `staging_categories_new`;
--- }}}
--- Update the local copy {{{
 INSERT IGNORE INTO `categories` (
     `categories_id`,
     `parent_id`,
@@ -581,10 +499,6 @@ SELECT
     `parent_id`,
     @SCRIPT_ADD_DATE
 FROM `staging_categories_new`;
--- }}}
--- }}}
--- Add to the categories_description table {{{
--- Generate the script to update the remote table {{{
 SELECT
     CONCAT(
         'INSERT IGNORE INTO `categories_description`',
@@ -597,8 +511,6 @@ SELECT
         ';'
     )
 FROM `staging_categories_new`;
--- }}}
--- Update the local copy {{{
 INSERT IGNORE INTO `categories_description` (
     `categories_id`,
     `categories_name`,
@@ -609,10 +521,6 @@ SELECT
     `categories_name`,
     `categories_description`
 FROM `staging_categories_new`;
--- }}}
--- }}}
--- Add to the meta_tags_categories_description table {{{
--- Generate the script to update the remote table {{{
 SELECT
     CONCAT(
         'INSERT IGNORE INTO `meta_tags_categories_description`',
@@ -626,8 +534,6 @@ SELECT
         ';'
     )
 FROM `staging_categories_new`;
--- }}}
--- Update the local copy {{{
 INSERT IGNORE INTO `meta_tags_categories_description` (
     `categories_id`,
     `metatags_title`,
@@ -640,11 +546,6 @@ SELECT
     `categories_description`,
     `categories_description`
 FROM `staging_categories_new`;
--- }}}
--- }}}
--- }}}
--- Update parent categories {{{
--- Generate the script to update the remote table {{{
 SELECT
     CONCAT(
         'UPDATE `categories`',
@@ -654,18 +555,11 @@ SELECT
         ' LIMIT 1;'
     )
 FROM `staging_categories_parent`;
--- }}}
--- Update the local copy {{{
 UPDATE `categories`
 JOIN `staging_categories_parent`
     ON `staging_categories_parent`.`categories_id`
         = `categories`.`categories_id`
 SET `categories`.`parent_id`=`staging_categories_parent`.`parent_id`;
--- }}}
--- }}}
--- Update renamed categories {{{
--- Apply name changes to the description table {{{
--- Generate the script to update the remote table {{{
 SELECT
     CONCAT(
         'UPDATE `categories_description`',
@@ -679,8 +573,6 @@ SELECT
         ' LIMIT 1;'
     )
 FROM `staging_categories_rename`;
--- }}}
--- Update the local copy {{{
 UPDATE `categories_description`
 JOIN `staging_categories_rename`
     ON `categories_description`.`categories_id`
@@ -691,10 +583,6 @@ SET
     `categories_description`.`categories_description`
         = `staging_categories_rename`.`categories_description`
 WHERE `categories_description`.`language_id`=1;
--- }}}
--- }}}
--- Apply name changes to the meta_tags table {{{
--- Generate the script to update the remote table {{{
 SELECT
     CONCAT(
         'UPDATE `meta_tags_categories_description`',
@@ -708,8 +596,6 @@ SELECT
         ' LIMIT 1;'
     )
 FROM `staging_categories_rename`;
--- }}}
--- Update the local copy {{{
 UPDATE `meta_tags_categories_description`
 JOIN `staging_categories_rename`
     ON `meta_tags_categories_description`.`categories_id`
@@ -722,11 +608,6 @@ SET
     `meta_tags_categories_description`.`metatags_description`
         = `staging_categories_rename`.`categories_description`
 WHERE `language_id`=1;
--- }}}
--- }}}
--- }}}
--- Update category status values {{{
--- Generate the script to update the remote table {{{
 SELECT
     CONCAT(
         'UPDATE `categories`',
@@ -743,8 +624,6 @@ JOIN `staging_categories_status`
         = `categories`.`categories_id`
 WHERE NOT `categories`.`categories_status`
     = `staging_categories_status`.`categories_status`;
--- }}}
--- Update the local copy {{{
 UPDATE `categories`
 JOIN `staging_categories_status`
     ON `staging_categories_status`.`categories_id`
@@ -753,11 +632,7 @@ SET `categories`.`categories_status`
     = `staging_categories_status`.`categories_status`
 WHERE NOT `categories`.`categories_status`
     = `staging_categories_status`.`categories_status`;
--- }}}
--- }}}
---    force inactive status for unwanted categories
--- Make choosen categories inactive, regardless of AzureGreen's data {{{
--- Generate the script to update the remote table {{{
+-- Make choosen categories inactive, regardless of AzureGreen's data
 SELECT
     CONCAT(
         'UPDATE `categories`',
@@ -765,20 +640,11 @@ SELECT
         CONCAT('`categories_status`=',0),
         ' WHERE `categories_id` IN (29,33,250,278,524,421,6,14,124,396);'
     );
--- }}}
--- Update the local copy {{{
 UPDATE `categories`
 SET `categories_status`=0
 WHERE `categories_id` IN (29,33,250,278,524,421,6,14,124,396);
--- }}}
--- }}}
--- }}}
--- }}}
 
--- Import product data {{{
---    clone existing data [staging_products_current]
--- Convenience view for current data {{{
--- CREATE OR REPLACE VIEW `staging_products_live` AS
+-- Import product data
 DROP TABLE IF EXISTS `staging_products_live`;
 CREATE TEMPORARY TABLE `staging_products_live` (
     `products_id`             INT(11) NOT NULL,
@@ -835,8 +701,6 @@ WHERE
         `language_id`=1 OR
         `language_id` IS NULL
     ); 
--- }}}
--- A table to generate ID values below the INCREMENT_BASE {{{
 DROP TABLE IF EXISTS `staging_products_id`;
 CREATE TEMPORARY TABLE `staging_products_id` (
     `products_id`    INT(11) NOT NULL AUTO_INCREMENT,
@@ -848,10 +712,6 @@ SELECT
     `products_id`,
     `products_model`
 FROM `staging_products_live`;
--- }}}
---    read raw data from CSV file [staging_products_complete_ag {db_import-ag_complete_files.csv},
--- Read the raw CSV files of product data into tables {{{
--- Table for the raw CSV data in the ag_complete_files file {{{
 DROP TABLE IF EXISTS `staging_products_complete_ag`;
 CREATE TEMPORARY TABLE `staging_products_complete_ag` (
     `prod_code`  VARCHAR(32) NOT NULL DEFAULT '',
@@ -866,8 +726,6 @@ CREATE TEMPORARY TABLE `staging_products_complete_ag` (
     `cantsell`   TINYINT(1) NOT NULL DEFAULT 0,
     INDEX (`prod_code`)
 )Engine=MyISAM DEFAULT CHARSET=utf8mb4;
--- }}}
--- Read the ag_complete_files.csv file {{{
 LOAD DATA LOCAL
     INFILE 'db_import-ag_complete_files.csv'
 INTO TABLE `staging_products_complete_ag`
@@ -875,9 +733,6 @@ INTO TABLE `staging_products_complete_ag`
     OPTIONALLY ENCLOSED BY '"'
     LINES TERMINATED BY '\n'
     IGNORE 1 LINES;
--- }}}
---                                 staging_products_stockinfo_ag {db_import-stockinfo.csv},
--- Table for the raw CSV data in the stockinfo file {{{
 DROP TABLE IF EXISTS `staging_products_stockinfo_ag`;
 CREATE TEMPORARY TABLE `staging_products_stockinfo_ag` (
     `prod_code`  VARCHAR(32) NOT NULL DEFAULT '',
@@ -891,8 +746,6 @@ CREATE TEMPORARY TABLE `staging_products_stockinfo_ag` (
     `cantsell`   TINYINT(1) NOT NULL DEFAULT 0,
     INDEX (`prod_code`)
 )Engine=MyISAM DEFAULT CHARSET=utf8mb4;
--- }}}
--- Read the stockinfo.csv file {{{
 LOAD DATA LOCAL
     INFILE 'db_import-stockinfo.csv'
 INTO TABLE `staging_products_stockinfo_ag`
@@ -900,17 +753,12 @@ INTO TABLE `staging_products_stockinfo_ag`
     OPTIONALLY ENCLOSED BY '"'
     LINES TERMINATED BY '\n'
     IGNORE 1 LINES;
--- }}}
---                                 staging_products_description_ag {db_import-descriptions.csv}]
--- Table for the raw CSV data in the descriptions file {{{
 DROP TABLE IF EXISTS `staging_products_description_ag`;
 CREATE TEMPORARY TABLE `staging_products_description_ag` (
     `prod_code`  VARCHAR(32) NOT NULL DEFAULT '',
     `narrative`  TEXT DEFAULT NULL,
     INDEX (`prod_code`)
 )Engine=MyISAM DEFAULT CHARSET=utf8mb4;
--- }}}
--- Read the descriptions.csv file {{{
 LOAD DATA LOCAL
     INFILE 'db_import-descriptions.csv'
 INTO TABLE `staging_products_description_ag`
@@ -918,10 +766,6 @@ INTO TABLE `staging_products_description_ag`
     OPTIONALLY ENCLOSED BY '"'
     LINES TERMINATED BY '\n'
     IGNORE 1 LINES;
--- }}}
--- }}}
---    convert data to Zen-Cart standards [staging_products_import]
--- Table for applying the Zen-Cart rules to the products data {{{
 DROP TABLE IF EXISTS `staging_products_import`;
 CREATE TEMPORARY TABLE `staging_products_import` (
     `products_id`             INT(11) DEFAULT NULL,
@@ -944,9 +788,6 @@ CREATE TEMPORARY TABLE `staging_products_import` (
     KEY `idx_staging_products_date_added_import` (`products_date_added`),
     KEY `idx_staging_master_categories_id_import` (`master_categories_id`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4;
--- }}}
--- Convert the products data to Zen-Cart rules {{{
--- Process the complete listing first {{{
 INSERT INTO `staging_products_import` (
     `products_model`,
     `products_image`,
@@ -979,8 +820,6 @@ SELECT
     `prod_code`,
     `narrative`
 FROM `staging_products_complete_ag`;
--- }}}
--- Process the stockinfo file second, adding any not in the table so far {{{
 INSERT INTO `staging_products_import` (
     `products_model`,
     `products_image`,
@@ -1015,8 +854,6 @@ LEFT OUTER JOIN `staging_products_complete_ag`
     ON `staging_products_stockinfo_ag`.`prod_code`
         = `staging_products_complete_ag`.`prod_code`
 WHERE `staging_products_complete_ag`.`prod_code` IS NULL;
--- }}}
--- Process the stockinfo file, updating anything already there {{{
 UPDATE `staging_products_import`
 JOIN `staging_products_stockinfo_ag`
     ON `staging_products_stockinfo_ag`.`prod_code`
@@ -1044,8 +881,6 @@ SET
     `staging_products_import`.`products_name`
         = LEFT(`staging_products_stockinfo_ag`.`prod_desc`,64),
     `staging_products_import`.`products_title`=`prod_desc`;
--- }}}
--- Process the descriptions file, with minimal data available adding any not in the table so far {{{
 INSERT INTO `staging_products_import` (
     `products_model`,
     `products_description`
@@ -1058,8 +893,6 @@ LEFT OUTER JOIN `staging_products_complete_ag`
     ON `staging_products_description_ag`.`prod_code`
         = `staging_products_complete_ag`.`prod_code`
 WHERE `staging_products_complete_ag`.`prod_code` IS NULL;
--- }}}
--- Process the descriptions file, with minimal data available, updating anything already there {{{
 UPDATE `staging_products_import`
 JOIN `staging_products_description_ag`
     ON `staging_products_import`.`products_model`
@@ -1067,10 +900,6 @@ JOIN `staging_products_description_ag`
 SET
     `staging_products_import`.`products_description`
         = `staging_products_description_ag`.`narrative`;
--- }}}
--- }}}
---    filter new products from _import [staging_products_new]
--- Move new products to their own table {{{
 DROP TABLE IF EXISTS `staging_products_new`;
 CREATE TEMPORARY TABLE `staging_products_new` (
     `products_id`             INT(11) DEFAULT NULL,
@@ -1118,17 +947,12 @@ FROM `staging_products_import`
 JOIN `staging_products_new`
     ON `staging_products_import`.`products_model`
         = `staging_products_new`.`products_model`;
--- }}}
--- Add the products_id for existing products from the database {{{
 UPDATE `staging_products_import`
 JOIN `staging_products_live`
     ON `staging_products_import`.`products_model`
         = `staging_products_live`.`products_model`
 SET `staging_products_import`.`products_id`
     = `staging_products_live`.`products_id`;
--- }}}
---    mark dropped products as inactive
--- Missing products become inactive {{{
 DROP TABLE IF EXISTS `staging_products_dropped`;
 CREATE TEMPORARY TABLE `staging_products_dropped` (
     `products_id`  INT(11) NOT NULL
@@ -1142,9 +966,6 @@ LEFT OUTER JOIN `staging_products_import`
 WHERE
     `staging_products_import`.`products_model` IS NULL AND
     `staging_products_live`.`products_status`=1;
--- }}}
---    update quantity, weight and price, where available, from import data
--- Table for the vital statistics for products {{{
 DROP TABLE IF EXISTS `staging_products_vitals`;
 CREATE TEMPORARY TABLE `staging_products_vitals` (
     `products_id`           INT(11) DEFAULT NULL,
@@ -1179,9 +1000,6 @@ WHERE
         = `staging_products_live`.`products_weight` OR
     NOT `staging_products_import`.`products_quantity`
         = `staging_products_live`.`products_quantity`;
--- }}}
---    update product status based on import status or quantity
--- Set product status inactive {{{
 DROP TABLE IF EXISTS `staging_products_inactive`;
 CREATE TEMPORARY TABLE `staging_products_inactive` (
     `products_id` INT(11) NOT NULL
@@ -1201,15 +1019,12 @@ WHERE
         `staging_products_import`.`products_status`=0 OR
         NOT `staging_products_import`.`products_quantity` > 0
     );
--- Add in products which were dropped by AzureGreen
 INSERT IGNORE INTO `staging_products_inactive` (
     `products_id`
 )
 SELECT
     `products_id`
 FROM `staging_products_dropped`;
--- }}}
--- Set product status active {{{
 DROP TABLE IF EXISTS `staging_products_active`;
 CREATE TEMPORARY TABLE `staging_products_active` (
     `products_id` INT(11) NOT NULL
@@ -1229,9 +1044,6 @@ WHERE
         `staging_products_import`.`products_status`=1 AND
         `staging_products_import`.`products_quantity` > 0
     );
--- }}}
---    remove unchanged products from _import, ignoring changes in qty, price and weight
--- Drop unchanged products from further processing {{{
 DELETE `staging_products_import`
 FROM `staging_products_import`
 JOIN `staging_products_live`
@@ -1240,9 +1052,6 @@ JOIN `staging_products_live`
 WHERE
     `staging_products_import`.`products_name`=`staging_products_live`.`products_name` AND
     `staging_products_import`.`products_description`=`staging_products_live`.`products_description`;
--- }}}
---    update product name and description where different, unless manually changed in database
--- Find name changes for products {{{
 DROP TABLE IF EXISTS `staging_products_info`;
 CREATE TEMPORARY TABLE `staging_products_info` (
     `products_id`        INT(11) NOT NULL,
@@ -1262,8 +1071,6 @@ WHERE
     `staging_products_live`.`products_last_modified` IS NULL AND
     NOT `staging_products_import`.`products_name`
         = `staging_products_live`.`products_name`;
--- }}}
--- Find description changes for products {{{
 INSERT INTO `staging_products_info` (
     `products_id`,
     `products_narrative`
@@ -1281,10 +1088,6 @@ WHERE
 ON DUPLICATE KEY UPDATE
     `products_narrative`
         = `staging_products_import`.`products_description`;
--- }}}
---    collect anomolies (name/desc too long, missing data, etc.) [staging_products_errors]
--- Record problems found in the new data for products {{{
--- Report new products with name too long {{{
 INSERT INTO `staging_products_errors` (
     `products_model`,
     `issue`,
@@ -1298,8 +1101,6 @@ SELECT
     `products_title`
 FROM `staging_products_new`
 WHERE NOT `products_name`=`products_title`;
--- }}}
--- Report new products with missing desciptions {{{
 INSERT INTO `staging_products_errors` (
     `products_model`,
     `issue`
@@ -1311,8 +1112,6 @@ FROM `staging_products_import`
 WHERE
     `products_description` IS NULL OR
     `products_description`='';
--- }}}
--- Report new products with missing names {{{
 INSERT INTO `staging_products_errors` (
     `products_model`,
     `issue`
@@ -1324,12 +1123,7 @@ FROM `staging_products_import`
 WHERE
     `products_name` IS NULL OR
     `products_name`='';
--- }}}
--- }}}
---    insert new products information into the database
--- Apply changes from the information files {{{
--- Update the status of existing products {{{
--- Generate the script for the remote database {{{
+-- Apply changes from the information files
 SELECT
     IFNULL(CONCAT(
         'UPDATE `products`',
@@ -1350,8 +1144,6 @@ SELECT
         ');'
     ),'')
 FROM `staging_products_inactive`;
--- }}}
--- Update the local tables {{{
 UPDATE `products`
 JOIN `staging_products_active`
     ON `staging_products_active`.`products_id`
@@ -1362,11 +1154,6 @@ JOIN `staging_products_inactive`
     ON `staging_products_inactive`.`products_id`
         = `products`.`products_id`
 SET `products_status`=0;
--- }}}
--- }}}
--- Update names and descriptions of existing products {{{
--- Update the products_description table {{{
--- Generate the script for the remote database {{{
 SELECT
     CONCAT(
         'UPDATE `products_description`',
@@ -1379,8 +1166,6 @@ SELECT
         ' LIMIT 1;'
     )
 FROM `staging_products_info`;
--- }}}
--- Update the local table {{{
 UPDATE `products_description`
 JOIN `staging_products_info`
     ON `staging_products_info`.`products_id`
@@ -1394,10 +1179,6 @@ SET
         `staging_products_info`.`products_narrative`,
         `products_description`.`products_description`
     );
--- }}}
--- }}}
--- Update the meta_tags table {{{
--- Generate the script for the remote database {{{
 SELECT
     CONCAT(
         'UPDATE `meta_tags_products_description`',
@@ -1411,8 +1192,6 @@ SELECT
         ' LIMIT 1;'
     )
 FROM `staging_products_info`;
--- }}}
--- Update the local table {{{
 UPDATE `meta_tags_products_description`
 JOIN `staging_products_info`
     ON `staging_products_info`.`products_id`
@@ -1430,11 +1209,6 @@ SET
         `staging_products_info`.`products_narrative`,
         `meta_tags_products_description`.`metatags_description`
     );
--- }}}
--- }}}
--- }}}
--- Update the vital stats for existing products {{{
--- Generate the script for the remote database {{{
 SELECT
     CONCAT(
         'UPDATE `products`',
@@ -1461,8 +1235,6 @@ SELECT
         ' LIMIT 1;'
     )
 FROM `staging_products_vitals`;
--- }}}
--- Update the local tables {{{
 UPDATE `products`
 JOIN `staging_products_vitals`
     ON `staging_products_vitals`.`products_id`
@@ -1491,20 +1263,12 @@ SET
             `staging_products_vitals`.`products_price`,
             `staging_products_live`.`products_price`
         );
--- }}}
--- }}}
--- Insert the new products into the database {{{
--- Get new ID numbers with the specialized table {{{
--- Insert product into the table {{{
 INSERT INTO `staging_products_id` (
     `products_model`
 )
 SELECT
     `products_model`
 FROM `staging_products_new`;
--- }}}
--- Add the new ID numbers to the working table {{{
--- Set master_categories_id to the temporary import-sorting category
 UPDATE `staging_products_new`
 JOIN `staging_products_id`
     ON `staging_products_new`.`products_model`
@@ -1514,10 +1278,6 @@ SET
         = `staging_products_id`.`products_id`,
     `staging_products_new`.`master_categories_id`
         = @IMPORT_CATEGORY;
--- }}}
--- }}}
--- Add products to the products table {{{
--- Generate the script for the remote database {{{
 SELECT
     CONCAT(
         'INSERT IGNORE INTO `products`'
@@ -1539,8 +1299,6 @@ SELECT
         ';'
     )
 FROM `staging_products_new`;
--- }}}
--- Update the local tables {{{
 INSERT IGNORE INTO `products` (
     `products_id`,
     `products_quantity`,
@@ -1569,10 +1327,6 @@ SELECT
     `products_price`,
     `master_categories_id`
 FROM `staging_products_new`;
--- }}}
--- }}}
--- Add products to the products_description table {{{
--- Generate the script for the remote database {{{
 SELECT
     CONCAT(
         'INSERT IGNORE INTO `products_description`',
@@ -1586,8 +1340,6 @@ SELECT
         ";"
     )
 FROM `staging_products_new`;
--- }}}
--- Update the local tables {{{
 INSERT IGNORE INTO `products_description` (
     `products_id`,
     `language_id`,
@@ -1600,10 +1352,6 @@ SELECT
     `products_name`,
     `products_description`
 FROM `staging_products_new`;
--- }}}
--- }}}
--- Add products to the meta tags table {{{
--- Generate the script for the remote database {{{
 SELECT
     CONCAT(
         'INSERT IGNORE INTO `meta_tags_products_description`',
@@ -1618,8 +1366,6 @@ SELECT
         ";"
     )
 FROM `staging_products_new`;
--- }}}
--- Update the local tables {{{
 INSERT IGNORE INTO `meta_tags_products_description` (
     `products_id`,
     `language_id`,
@@ -1634,15 +1380,8 @@ SELECT
     `products_description`,
     `products_description`
 FROM `staging_products_new`;
--- }}}
--- }}}
--- }}}
--- }}}
--- }}}
 
--- Import product-category links {{{
---    clone existing data [staging_placement_live]
--- Create a convenience view of the current data {{{
+-- Import product-category links
 DROP TABLE IF EXISTS `staging_placement_live`;
 CREATE TEMPORARY TABLE `staging_placement_live` (
     `products_id`    INT(11) NOT NULL,
@@ -1665,18 +1404,12 @@ WHERE
     `products_to_categories`.`categories_id` < @INCREMENT_BASE AND
     `products_to_categories`.`products_id` < @INCREMENT_BASE
 ORDER BY `products_model`,`categories_id`;
--- }}}
---    read raw data from CSV file [staging_products_categories_ag {db_import-product-department.csv}]
--- Read the raw CSV into the database {{{
--- The table to read the data into {{{
 DROP TABLE IF EXISTS `staging_placement_ag`;
 CREATE TEMPORARY TABLE `staging_placement_ag` (
     `prod_code` VARCHAR(32) NOT NULL,
     `dept_code` INT(11) NOT NULL,
     KEY (`prod_code`)
 )Engine=MEMORY DEFAULT CHARSET=utf8mb4;
--- }}}
--- Read the AzureGree data file {{{
 LOAD DATA LOCAL
     INFILE 'db_import-product-department.csv'
 INTO TABLE `staging_placement_ag`
@@ -1684,11 +1417,6 @@ INTO TABLE `staging_placement_ag`
     OPTIONALLY ENCLOSED BY '"'
     LINES TERMINATED BY '\n'
     IGNORE 1 LINES;
--- }}}
--- }}}
---    convert data to Zen-Cart standards [staging_placement_import]
--- Apply Zen-Cart rules to the data {{{
--- Table for applying Zen-Cart rules to the links data {{{
 DROP TABLE IF EXISTS `staging_placement_import`;
 CREATE TEMPORARY TABLE `staging_placement_import` (
     `products_model` VARCHAR(32) NOT NULL,
@@ -1697,8 +1425,6 @@ CREATE TEMPORARY TABLE `staging_placement_import` (
     PRIMARY KEY (`products_model`,`categories_id`),
     UNIQUE (`categories_id`,`products_id`)
 ) ENGINE=MEMORY DEFAULT CHARSET=utf8mb4;
--- }}}
--- Convert the data to Zen-Cart rules {{{
 INSERT IGNORE INTO `staging_placement_import` (
     `products_model`,
     `categories_id`
@@ -1706,10 +1432,6 @@ INSERT IGNORE INTO `staging_placement_import` (
     `prod_code`,
     `dept_code`
 FROM `staging_placement_ag`;
--- }}}
--- }}}
--- Sift placement records into new and dropped placements and new products {{{
--- Move placement records for new products to their own table {{{
 DROP TABLE IF EXISTS `staging_placement_new`;
 CREATE TEMPORARY TABLE `staging_placement_new` (
     `products_model` VARCHAR(32) NOT NULL,
@@ -1736,8 +1458,6 @@ DELETE FROM `staging_placement_import`
 WHERE `products_model` IN (
     SELECT DISTINCT `products_model` FROM `staging_products_new`
 );
--- }}}
--- Add products_id to the table, for remaining products {{{
 UPDATE `staging_placement_import`
 JOIN `staging_products_live`
     ON `staging_products_live`.`products_model`
@@ -1745,8 +1465,6 @@ JOIN `staging_products_live`
 SET `staging_placement_import`.`products_id`
     = `staging_products_live`.`products_id`
 WHERE `staging_products_live`.`products_model` IS NOT NULL;
--- }}}
--- Find placements which have been dropped by AzureGreen {{{
 DROP TABLE IF EXISTS `staging_placement_dropped`;
 CREATE TEMPORARY TABLE `staging_placement_dropped` (
     `products_id`   INT(11) NOT NULL,
@@ -1774,8 +1492,6 @@ WHERE
         FROM `staging_placement_errors`
         WHERE `issue`='Non-leaf category placement'
     );
--- }}}
--- Find placements which have been added by AzureGreen {{{
 DROP TABLE IF EXISTS `staging_placement_added`;
 CREATE TEMPORARY TABLE `staging_placement_added` (
     `products_id`   INT(11) NOT NULL,
@@ -1801,11 +1517,6 @@ WHERE
     `staging_placement_import`.`categories_id` NOT IN (
         SELECT DISTINCT `parent_id` FROM `categories`
     );
--- }}}
--- }}}
--- Apply changes from the imported data {{{
--- Remove placements dropped by AzureGreen {{{
--- Generate script for remote database {{{
 SELECT
     CONCAT(
         'DELETE FROM `products_to_categories`',
@@ -1817,8 +1528,6 @@ SELECT
         ';'
     )
 FROM `staging_placement_dropped`;
--- }}}
--- Update local table {{{
 DELETE `products_to_categories`
 FROM `products_to_categories`
 JOIN `staging_placement_dropped`
@@ -1826,10 +1535,6 @@ JOIN `staging_placement_dropped`
         = `staging_placement_dropped`.`products_id`
     AND `products_to_categories`.`categories_id`
         = `staging_placement_dropped`.`categories_id`;
--- }}}
--- }}}
--- Add new placements added by AzureGreen {{{
--- Generate script for remote database {{{
 SELECT
     CONCAT(
         'INSERT IGNORE INTO `products_to_categories`',
@@ -1842,8 +1547,6 @@ SELECT
         ');'
     )
 FROM `staging_placement_added`;
--- }}}
--- Update local table {{{
 INSERT IGNORE INTO `products_to_categories` (
     `products_id`,
     `categories_id`
@@ -1852,10 +1555,6 @@ SELECT
     `products_id`,
     `categories_id`
 FROM `staging_placement_added`;
--- }}}
--- }}}
--- Apply new product placements {{{
--- Add the sorting category for each new product to the placement data {{{
 INSERT IGNORE INTO `staging_placement_new` (
     `categories_id`,
     `products_id`,
@@ -1866,9 +1565,6 @@ SELECT
     `products_id`,
     `products_model`
 FROM `staging_products_new`;
--- }}}
--- Add the new product placements to the database {{{
--- Generate the script for the remote database {{{
 SELECT
     CONCAT(
         'INSERT IGNORE INTO `products_to_categories`',
@@ -1881,8 +1577,6 @@ SELECT
     )
 FROM `staging_placement_new`
 ORDER BY `products_model`,`categories_id`;
--- }}}
--- Update the local table {{{
 INSERT IGNORE INTO `products_to_categories` (
     `products_id`,
     `categories_id`
@@ -1892,13 +1586,8 @@ SELECT
     `categories_id`
 FROM `staging_placement_new`
 ORDER BY `products_model`,`categories_id`;
--- }}}
--- }}}
--- Set the master category for new products, wehre possible {{{
--- Use an external, generated, script to set the master category for new products {{{
+-- Use an external, generated, script to set the master category for new products
 SOURCE ./db_import-master_categories.sql
--- }}}
--- Find and fix any new products not handled by the generated script {{{
 UPDATE `products`
 JOIN `products_to_categories`
     ON `products`.`products_id`
@@ -1907,8 +1596,6 @@ SET `master_categories_id`=`categories_id`
 WHERE
     `master_categories_id`=@IMPORT_CATEGORY AND
     NOT `categories_id`=@IMPORT_CATEGORY;
--- }}}
--- Generate the script to replicate the changes in the remote database {{{
 SELECT 
     CONCAT(
         'UPDATE `products`',
@@ -1922,13 +1609,6 @@ SELECT
 FROM `products`
 JOIN `staging_products_new`
     USING (`products_id`);
--- }}}
--- }}}
--- }}}
--- }}}
---    collect anomolies (product in non-leaf category) [staging_placement_errors] 
--- Record errors found in the processing of placement data {{{
--- Items placed in categories which are not leaf nodes {{{
 INSERT IGNORE INTO `staging_placement_errors` (
     `categories_id`,
     `products_id`,
@@ -1947,8 +1627,6 @@ JOIN `products`
 WHERE `categories_id` IN (
     SELECT DISTINCT `parent_id` FROM `categories`
 );
--- }}}
--- Items without a sane master category {{{
 INSERT IGNORE INTO `staging_placement_errors` (
     `categories_id`,
     `products_id`,
@@ -1965,14 +1643,3 @@ SELECT
 FROM `products`
 NATURAL JOIN `products_description`
 WHERE `master_categories_id`=@IMPORT_CATEGORY;
--- }}}
--- }}}
---    correct AzureGreen error, changing cat-202 to cat-552 across the board
---    remove unchanged links from _import
---    insert new links into database
---    verify master of all products is still in link table
---       for dropped categories: set master to "missing", and add to anomolies
---       for existing categories: re-add to link table, and add to anomolies
--- }}}
-
-

@@ -216,8 +216,9 @@ function freshen {
     # If it is changed (presumably newer) copy it to the collection of new sources, return true
     # Return false otherwise
     src_name="$1"
+    uri_name="${src_name// /%20}"
     src_url="$2"
-    [ $pre_loaded ] || retrieve_file "$src_url/$src_name"
+    [ $pre_loaded ] || retrieve_file "$src_url/$uri_name"
     [ -e "$dir_test/$src_name" ] || return 1 
     [ -e "$dir_active/$src_name" ] && {
         last_sum="$(md5sum "$dir_active/$src_name" | awk -e '{print $1 }')"
@@ -231,14 +232,14 @@ function freshen {
 function freshen_annual_sheets {
     # Update the annual master change files, for human comsumption only
     for annual_file in $(seq $YEAR_FIRST $YEAR_LAST); do
-        freshen "$annual_file master updates.xlsx" "$source_url"
+        freshen "$annual_file master updates.xlsx" "$SOURCE_URL"
     done
 }
 
 function freshen_change_sheets {
     # Update to current change files, for human consumption only
     for change_file in $CHANGE_LIST; do
-      freshen "$change_file.xls" "$source_url"
+      freshen "$change_file.xls" "$SOURCE_URL"
     done
 }
 
@@ -246,7 +247,7 @@ function freshen_images {
     # Update and process the image archive files
     echo "Processing image archives."
     for data_file in $ARCHIVE_LIST; do
-      freshen "$data_file.zip" "$SOURCE_URL" && extract_images $data_file
+      freshen "$data_file.zip" "$SOURCE_URL/imageZipFiles" && extract_images $data_file
     done
     filter_new_images
     store_new_images 
@@ -257,7 +258,7 @@ function freshen_product_data {
     # Update and convert the stock information files
     mkdir -p "$dir_import"
     for data_file in $PRODUCT_DATA_LIST; do
-        freshen "$data_file.csv" "$source_url/dailyFiles" && convert_data_file $data_file
+        freshen "$data_file.csv" "$SOURCE_URL/dailyFiles" && convert_data_file $data_file
     done
 }
 
@@ -359,8 +360,6 @@ function pre_fetch {
 function retrieve_file {
     # Retrieves a file from AzureGreen, if it is newer than the local copy
     target="$1"
-echo "retrieve $target into $dir_test"
-return
     wget --directory-prefix=$dir_test --timestamping --no-if-modified-since $target
 }
 
@@ -500,12 +499,12 @@ function update_database {
     pushd $dir_data > /dev/null
     [ $pre_loaded ] && DB_NEW_DATE="$(echo $pre_load_id | perl -pe 's/\./-/g')"' 21:13:08'
     [ $pre_loaded ] || DB_ADD_DATE="$DB_NEW_DATE"
-    echo "'"$DB_ADD_DATE"','"$DB_NEW_DATE"'" > db_import-control_dates.sql
+    echo "'"$DB_ADD_DATE"','"$DB_NEW_DATE"'" > db_import-control_dates.csv
     generate_categories_sql 
     mysql -h $WORK_DB_HOST -u $WORK_DB_USER -p$WORK_DB_PASS -D $WORK_DB_NAME < "$code_path/ag_import.sql" > "$dir_stores/inventory_patch-$PATCH_DATE.sql"
-    gzip --keep "$dir_stores/inventory_path-$PATCH_DATE.sql"
+    gzip --keep "$dir_stores/inventory_patch-$PATCH_DATE.sql"
     popd > /dev/null
-    cp -p "$dir_stores/inventory_patch-$PATCH_DATE.sql*" "$dir_data"
+    cp -p $dir_stores/inventory_patch-$PATCH_DATE.sql* "$dir_data"
     echo "Importing of data complete."
 }
 
