@@ -114,10 +114,11 @@ DB_ADD_DATE='2018-10-31 21:13:08'
 DB_NEW_DATE="$(date --utc +%F%_9T)"
 
 # Database access information 
-STORE_DB_NAME=''
-STORE_DB_USER=''
-STORE_DB_PASS=''
-# If STORE_DB_PASS is left blank, the password will be prompted from on the command line
+WORK_DB_HOST='localhost'
+WORK_DB_NAME=''
+WORK_DB_USER=''
+WORK_DB_PASS=''
+# If WORK_DB_PASS is left blank, the password will be prompted from on the command line
 
 # Find the current date, for when creating a record of new downloads
 NOW_DATE="$(date --utc +%Y.%m.%d)"
@@ -501,7 +502,7 @@ function update_database {
     [ $pre_loaded ] || DB_ADD_DATE="$DB_NEW_DATE"
     echo "'"$DB_ADD_DATE"','"$DB_NEW_DATE"'" > db_import-control_dates.sql
     generate_categories_sql 
-    mysql -u $STORE_DB_USER -p$STORE_DB_PASS -D $STORE_DB_NAME < "$code_path/ag_import.sql" > "$dir_stores/inventory_patch-$PATCH_DATE.sql"
+    mysql -h $WORK_DB_HOST -u $WORK_DB_USER -p$WORK_DB_PASS -D $WORK_DB_NAME < "$code_path/ag_import.sql" > "$dir_stores/inventory_patch-$PATCH_DATE.sql"
     gzip --keep "$dir_stores/inventory_path-$PATCH_DATE.sql"
     popd > /dev/null
     cp -p "$dir_stores/inventory_patch-$PATCH_DATE.sql*" "$dir_data"
