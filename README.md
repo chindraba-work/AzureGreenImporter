@@ -8,9 +8,13 @@
 
 It was found that the data files and image names were significantly more "dirty" than originally thought. This required a reworking of how the data was processed and how the image files were sorted.
 
-It was also discovered that the available options on some shared hosting platforms are significantly tighter than required for this system to work. On key, among many, is the inability to do `LOAD DATA LOCAL INFILE` commands in MySQL/MariaDB. Until such time as this is converted to use fully native PHP code from within the Admin controls of the Zen-Cart store, this system will have to rely on command-line access to the database from a local machine. This can be the database itself, or a local clone of the database.
+It was also discovered that the available options on some shared hosting platforms are significantly tighter than required for this system to work. One key, among many, is the inability to do 
+    LOAD DATA LOCAL INFILE
+commands in MySQL/MariaDB. Until such time as this system is converted to use fully native PHP code from within the Admin controls of the Zen-Cart store, this system will have to rely on command-line access to the database from a local machine. This can be the a local clone of the database, or just copies of selected tables from the live database. It should not, however, be used with the live database.
 
-If switching from v1 to v2, it is safe to ignore all files installed, locally and remotely, as part of v1. The v2 files use unique names intentionally to avoid any cross-contamination. The files created by v1 _may_ need to be copied from their v1 location and renamed to their v2 names. See the `README_UPGRADE.md` file for complete instructions. 
+If switching from version 1 to version 2, the files installed on the local machine and the server can be removed, or ignored. Version 2 file names have nothing in common with version 1 files, and they will have no side effect, other than taking space, if left behind. The stored data files downloaded from AzureGreen, if any, can be used to recreate the existing catalog, if needed, but are not necessary. Version 2 needs to be installed into a clean database, including not having had the demo data installed.
+
+Attempting to use the importer with a database with products and categories already present WILL result in collisions between imported AzureGreen categories and existing categories. Product data will also be subject to corruption. It is possible to "sanitize" an existing database, but it is not recommended.
 
 ---
 
@@ -18,13 +22,15 @@ If switching from v1 to v2, it is safe to ignore all files installed, locally an
 
 - [Description](#description)
 - [Requirements](#requirements)
+- [Installation](#installation)
+- [Usage](#usage)
 - [Version Numbers](#version-numbers)
 - [Copyright and License](#copyright-and-license)
 
 
 ## Description
 
-A collection of [Bash](https://www.gnu.org/software/bash/) and SQL scripts for processing the information and image files supplied by AzureGreen to their distributors so that the information can be imported into a [Zen-Cart](https://www.zen-cart.com/) store without having to retype the information for thousands of products, or monitor the stock levels and prices on each of those products.
+A [Bash](https://www.gnu.org/software/bash/) and SQL script for processing the information and image files supplied by AzureGreen to their distributors so that the information can be imported into a [Zen-Cart](https://www.zen-cart.com/) store without having to retype the information for thousands of products, or monitor the stock levels and prices on each of those products.
 
 [TOP](#contents)
 
@@ -49,7 +55,32 @@ On the server for the Zen-Cart store, you need to have:
 - An FTP client
 - The ability to download files from AzureGreen’s wholesaler resource page
 
-_[The shell scripts are written in Bash script and use "Bashisms" which limit their operation in most other Unix, or non-Linux shells (such as Windows PowerShell).]_
+_[The shell script is written in Bash script and uses "Bashisms" which limits its operation in most other Unix, or non-Linux shells (such as Windows PowerShell).]_
+
+[TOP](#contents)
+
+## Installation
+
+1.  Create a directory on the local machine where the commands and data will be kept
+2.  Ensure that the live database has no products or categories added to it
+3.  Using the Import SQL Patch tool for the store, import the `install.sql` file
+4.  Copy the needed tables from the live database to the database where the work will be done. This can be done using phpMyAdmin, or any other tool of choice, so long as the entire set of data is copied. The tables to copy are:
+  -  `categories`
+  -  `categories_description`
+  -  `meta_tags_categories_description`
+  -  `meta_tags_products_description`
+  -  `products`
+  -  `products_description`
+  -  `products_to_categories`
+5.  Copy the contents of the ag_importer directory to the directory created in step 1.
+
+[TOP](#contents)
+
+## Usage
+
+Simplest usage is to execute the script from within the directory created for that purpose, no arguments needed. It is also possible to execute the script with a directory as the first argument. Doing so allows the script to handle importing into several instances without data migration between servers. A second argument may be used to load files stored locally under a dated directory. A single dot (period `.`) can be used as the first argument if the current directory is the directory to work within and a second argument is needed for the dated file import.
+
+Running the `ag_update.sh` script will generate a pair of files for uploading the changes to the live database. A regular SQL script, suitable to copy/paste or import into the proper tools, and a `gzip`ed version, acceptable to `phpMyAdmin` on the database's import tab.
 
 [TOP](#contents)
 

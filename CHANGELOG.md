@@ -2,6 +2,10 @@
 
 ## Changelog
 
+### v2.0.0
+
+- Completely replaced the system for reasons given in the README file
+
 ### v1.1.1
 
 - Add notice to README that version 1 will be dead
