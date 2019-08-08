@@ -329,9 +329,9 @@ CREATE TEMPORARY TABLE `staging_categories_rename` (
     PRIMARY KEY (`categories_id`)
 )Engine=MEMORY DEFAULT CHARSET=utf8mb4 AS
 SELECT
-    `staging_categories_import`.`categories_id`,
-    LEFT(`staging_categories_import`.`categories_description`,32),
-    `staging_categories_import`.`categories_description`
+    `staging_categories_import`.`categories_id` AS 'categories_id',
+    LEFT(`staging_categories_import`.`categories_description`,32) AS 'categories_name',
+    `staging_categories_import`.`categories_description` AS 'categories_description'
 FROM `staging_categories_import`
 JOIN `staging_categories_live`
     ON `staging_categories_live`.`categories_id`
@@ -362,7 +362,7 @@ INSERT INTO `staging_categories_status` (
 SELECT `categories_id`,0
 FROM `staging_categories_dropped`
 ON DUPLICATE KEY UPDATE `categories_status`=0;
-INSERT INTO `staging_categories_errors` (
+INSERT IGNORE INTO `staging_categories_errors` (
     `categories_id`,
     `issue`,
     `note_1`,
@@ -375,7 +375,7 @@ SELECT
     `categories_description`
 FROM `staging_categories_new`
 WHERE NOT `categories_name`=`categories_description`;
-INSERT INTO `staging_categories_errors` (
+INSERT IGNORE INTO `staging_categories_errors` (
     `categories_id`,
     `issue`,
     `note_1`
@@ -390,13 +390,15 @@ WHERE
         SELECT `categories_id` FROM `staging_categories_dropped`
     ) OR
     `parent_id` NOT IN (
+        SELECT `categories_id` FROM `staging_categories_live`
+        UNION
         SELECT `categories_id` FROM `staging_categories_new`
         UNION
         SELECT `categories_id` FROM `staging_categories_import`
         UNION
         SELECT 0
     );
-INSERT INTO `staging_categories_errors` (
+INSERT IGNORE INTO `staging_categories_errors` (
     `categories_id`,
     `issue`,
     `note_1`
@@ -411,11 +413,15 @@ WHERE
         SELECT `categories_id` FROM `staging_categories_dropped`
     ) OR
     `parent_id` NOT IN (
+        SELECT `categories_id` FROM `staging_categories_live`
+        UNION
         SELECT `categories_id` FROM `staging_categories_new`
         UNION
         SELECT `categories_id` FROM `staging_categories_import`
+        UNION
+        SELECT 0
     );
-INSERT INTO `staging_categories_errors` (
+INSERT IGNORE INTO `staging_categories_errors` (
     `categories_id`,
     `issue`,
     `note_1`
@@ -430,7 +436,7 @@ JOIN `staging_categories_new` AS `parent_table`
 WHERE 
     `child_table`.`categories_status`=1 AND
     `parent_table`.`categories_status`=0;
-INSERT INTO `staging_categories_errors` (
+INSERT IGNORE INTO `staging_categories_errors` (
     `categories_id`,
     `issue`,
     `note_1`
@@ -445,7 +451,7 @@ JOIN `staging_categories_import` AS `parent_table`
 WHERE 
     `child_table`.`categories_status`=1 AND
     `parent_table`.`categories_status`=0;
-INSERT INTO `staging_categories_errors` (
+INSERT IGNORE INTO `staging_categories_errors` (
     `categories_id`,
     `issue`,
     `note_1`
@@ -460,7 +466,7 @@ JOIN `staging_categories_new` AS `parent_table`
 WHERE 
     `child_table`.`categories_status`=1 AND
     `parent_table`.`categories_status`=0;
-INSERT INTO `staging_categories_errors` (
+INSERT IGNORE INTO `staging_categories_errors` (
     `categories_id`,
     `issue`,
     `note_1`
@@ -590,7 +596,7 @@ SELECT
         CONCAT_WS(',',
             CONCAT('`metatags_title`="',LEFT(`categories_description`,64),'"'),
             CONCAT('`metatags_keywords`="',`categories_description`,'"'),
-            CONCAT('`metatags_descriptionn`="',`categories_description`,'"')
+            CONCAT('`metatags_description`="',`categories_description`,'"')
         ),
         ' WHERE `language_id`=1',
         ' LIMIT 1;'
@@ -1088,7 +1094,7 @@ WHERE
 ON DUPLICATE KEY UPDATE
     `products_narrative`
         = `staging_products_import`.`products_description`;
-INSERT INTO `staging_products_errors` (
+INSERT IGNORE INTO `staging_products_errors` (
     `products_model`,
     `issue`,
     `note_1`,
@@ -1101,7 +1107,7 @@ SELECT
     `products_title`
 FROM `staging_products_new`
 WHERE NOT `products_name`=`products_title`;
-INSERT INTO `staging_products_errors` (
+INSERT IGNORE INTO `staging_products_errors` (
     `products_model`,
     `issue`
 )
@@ -1112,7 +1118,7 @@ FROM `staging_products_import`
 WHERE
     `products_description` IS NULL OR
     `products_description`='';
-INSERT INTO `staging_products_errors` (
+INSERT IGNORE INTO `staging_products_errors` (
     `products_model`,
     `issue`
 )
@@ -1540,7 +1546,7 @@ SELECT
         'INSERT IGNORE INTO `products_to_categories`',
         ' (`products_id`,`categories_id`)',
         ' VALUES (',
-        CONCAT_WS(
+        CONCAT_WS(',',
             `products_id`,
             `categories_id`
         ),
