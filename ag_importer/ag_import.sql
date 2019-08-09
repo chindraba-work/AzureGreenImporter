@@ -1527,7 +1527,7 @@ SELECT
     CONCAT(
         'DELETE FROM `products_to_categories`',
         ' WHERE ',
-        CONCAT_WS(' AND',
+        CONCAT_WS(' AND ',
             CONCAT('`products_id`=',`products_id`),
             CONCAT('`categories_id`=',`categories_id`)
         ),
