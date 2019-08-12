@@ -644,11 +644,11 @@ SELECT
         'UPDATE `categories`',
         ' SET ',
         CONCAT('`categories_status`=',0),
-        ' WHERE `categories_id` IN (29,33,250,278,524,421,6,14,124,396);'
+        ' WHERE `categories_id` IN (29,33,250,278,524,421,6,14,124,396,619);'
     );
 UPDATE `categories`
 SET `categories_status`=0
-WHERE `categories_id` IN (29,33,250,278,524,421,6,14,124,396);
+WHERE `categories_id` IN (29,33,250,278,524,421,6,14,124,396,619);
 
 -- Import product data
 DROP TABLE IF EXISTS `staging_products_live`;
