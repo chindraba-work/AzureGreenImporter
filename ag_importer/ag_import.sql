@@ -1438,7 +1438,10 @@ INSERT IGNORE INTO `staging_placement_import` (
 ) SELECT
     `prod_code`,
     `dept_code`
-FROM `staging_placement_ag`;
+FROM `staging_placement_ag`
+JOIN `categories`
+    ON `staging_placement_ag`.`dept_code`
+        = `categories`.`categories_id`;
 DROP TABLE IF EXISTS `staging_placement_new`;
 CREATE TEMPORARY TABLE `staging_placement_new` (
     `products_model` VARCHAR(32) NOT NULL,
