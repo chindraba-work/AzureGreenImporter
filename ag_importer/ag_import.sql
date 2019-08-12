@@ -824,7 +824,7 @@ SELECT
     5000,
     LEFT(`prod_desc`,64),
     `prod_code`,
-    `narrative`
+    IF(`narrative`='',`prod_desc`,`narrative`)
 FROM `staging_products_complete_ag`;
 INSERT INTO `staging_products_import` (
     `products_model`,
@@ -1069,7 +1069,8 @@ CREATE TEMPORARY TABLE `staging_products_info` (
 SELECT
     `products_id`,
     `staging_products_import`.`products_name` AS 'products_label',
-    `staging_products_import`.`products_title` AS 'products_title'
+    `staging_products_import`.`products_title` AS 'products_title',
+    NULL AS 'products_narrative'
 FROM `staging_products_import`
 JOIN `staging_products_live`
     USING (`products_id`)
@@ -1299,7 +1300,7 @@ SELECT
             CONCAT('`products_weight`=',`products_weight`),
             CONCAT('`products_status`=',`products_status`),
             CONCAT('`manufacturers_id`=',@AZUREGREEN_ID),
-            CONCAT('`products_price_sorter`=',`products_weight`),
+            CONCAT('`products_price_sorter`=',`products_price`),
             CONCAT('`master_categories_id`=',`master_categories_id`)
         ),
         ';'

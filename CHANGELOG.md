@@ -5,6 +5,10 @@
 ### v2.0.0
 
 - Completely replaced the system for reasons given in the README file
+- Better trapping for oddities in the data supplied by AzureGreen
+- Reduced the MySQL permissions needed on the hosted database
+- Filtered images to only include new images in the upload pack
+- Improved data handling across the board
 
 ### v1.1.1
 
