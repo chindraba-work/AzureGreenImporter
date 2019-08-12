@@ -239,8 +239,8 @@ CREATE TEMPORARY TABLE `staging_categories_import` (
     `categories_description`  VARCHAR(255),
     `categories_status`       TINYINT(1) NOT NULL DEFAULT 1,
     PRIMARY KEY (`categories_id`),
-    KEY `idx_staging_categories_name_import` (`categories_description`),
-    UNIQUE `idx_staging_categories_by_parent_import` (`parent_id`,`categories_description`)
+    KEY `idx_staging_categories_name_import` (`categories_description`)
+--    UNIQUE `idx_staging_categories_by_parent_import` (`parent_id`,`categories_description`)
 ) Engine=MEMORY DEFAULT CHARSET=utf8mb4;
 INSERT INTO `staging_categories_import` (
     `categories_id`,
