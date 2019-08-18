@@ -70,11 +70,11 @@
 --   indicating that the store (under admin control) made changes to the 
 --   data, making that record 'untouchable' for updates to names and other
 --   description-type information. 
-DROP TEMPORARY TABLE IF EXISTS `staging_control_dates`;
-CREATE TEMPORARY TABLE `staging_control_dates` (
+DROP TABLE IF EXISTS `staging_control_dates`;
+CREATE TABLE `staging_control_dates` (
     `add_date` DATETIME NOT NULL DEFAULT '2018-10-31 21:13:08',
     `new_date` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP 
-) ENGINE=MEMORY DEFAULT CHARSET=utf8mb4;
+)Engine=MyISAM DEFAULT CHARSET=utf8mb4;
 LOAD DATA LOCAL
     INFILE './db_import-control_dates.csv'
 INTO TABLE `staging_control_dates`
@@ -175,7 +175,7 @@ CREATE TABLE IF NOT EXISTS `staging_placement_errors` (
 
 -- Import category data
 DROP TABLE IF EXISTS `staging_categories_live`;
-CREATE TEMPORARY TABLE `staging_categories_live` (
+CREATE TABLE `staging_categories_live` (
     `categories_id`     INT(11) NOT NULL AUTO_INCREMENT,
     `categories_image`  VARCHAR(255) DEFAULT NULL,
     `parent_id`         INT(11) NOT NULL DEFAULT 0,
@@ -213,7 +213,7 @@ WHERE
     )
 ORDER BY `parent_id`,`categories_description`;
 DROP TABLE IF EXISTS `staging_categories_ag`;
-CREATE TEMPORARY TABLE `staging_categories_ag` (
+CREATE TABLE `staging_categories_ag` (
     `dept_name`  VARCHAR(255) NOT NULL,
     `dept_code`  INT(11) NOT NULL,
     `dept_deep`  INT(11) NOT NULL,
@@ -221,7 +221,7 @@ CREATE TEMPORARY TABLE `staging_categories_ag` (
     `parent_id`  INT(11) NOT NULL DEFAULT 0,
     INDEX (`dept_code`),
     INDEX (`parent_id`)
-) Engine=MEMORY DEFAULT CHARSET=utf8mb4;
+)Engine=MyISAM DEFAULT CHARSET=utf8mb4;
 LOAD DATA LOCAL
     INFILE 'db_import-departments.csv'
 INTO TABLE `staging_categories_ag`
@@ -233,7 +233,7 @@ INTO TABLE `staging_categories_ag`
 DELETE FROM `staging_categories_ag`
 WHERE `dept_code` < 0;
 DROP TABLE IF EXISTS `staging_categories_import`;
-CREATE TEMPORARY TABLE `staging_categories_import` (
+CREATE TABLE `staging_categories_import` (
     `categories_id`           INT(11) NOT NULL,
     `parent_id`               INT(11) NOT NULL,
     `categories_description`  VARCHAR(255),
@@ -241,7 +241,7 @@ CREATE TEMPORARY TABLE `staging_categories_import` (
     PRIMARY KEY (`categories_id`),
     KEY `idx_staging_categories_name_import` (`categories_description`)
 --    UNIQUE `idx_staging_categories_by_parent_import` (`parent_id`,`categories_description`)
-) Engine=MEMORY DEFAULT CHARSET=utf8mb4;
+)Engine=MyISAM DEFAULT CHARSET=utf8mb4;
 INSERT INTO `staging_categories_import` (
     `categories_id`,
     `parent_id`,
@@ -256,9 +256,9 @@ FROM `staging_categories_ag`
 ORDER BY `dept_deep`,`parent_id`,`dept_code`;
 -- Missing categories become inactive
 DROP TABLE IF EXISTS `staging_categories_dropped`;
-CREATE TEMPORARY TABLE `staging_categories_dropped` (
+CREATE TABLE `staging_categories_dropped` (
     `categories_id` INT(11) NOT NULL
-)Engine=MEMORY AS
+)Engine=MyISAM AS
 SELECT
     `staging_categories_live`.`categories_id`
 FROM `staging_categories_live`
@@ -279,7 +279,7 @@ WHERE
     `staging_categories_import`.`categories_status`
         = `staging_categories_live`.`categories_status`;
 DROP TABLE IF EXISTS `staging_categories_new`;
-CREATE TEMPORARY TABLE `staging_categories_new` (
+CREATE TABLE `staging_categories_new` (
     `categories_id`           INT(11) NOT NULL,
     `parent_id`               INT(11) NOT NULL,
     `categories_name`         VARCHAR(32),
@@ -288,7 +288,7 @@ CREATE TEMPORARY TABLE `staging_categories_new` (
     PRIMARY KEY (`categories_id`),
     KEY `idx_staging_categories_name_new` (`categories_name`),
     UNIQUE `idx_staging_categories_by_parent_new` (`parent_id`,`categories_description`)
-) Engine=MEMORY DEFAULT CHARSET=utf8mb4 AS
+)Engine=MyISAM DEFAULT CHARSET=utf8mb4 AS
 SELECT
     `staging_categories_import`.`categories_id` AS 'categories_id',
     `staging_categories_import`.`parent_id` AS 'parent_id',
@@ -307,11 +307,11 @@ JOIN `staging_categories_new`
     ON `staging_categories_import`.`categories_id`
         = `staging_categories_new`.`categories_id`;
 DROP TABLE IF EXISTS `staging_categories_parent`;
-CREATE TEMPORARY TABLE `staging_categories_parent` (
+CREATE TABLE `staging_categories_parent` (
     `categories_id` INT(11) NOT NULL,
     `parent_id`     INT(11) NOT NULL,
     PRIMARY KEY (`categories_id`)
-)Engine=MEMORY AS
+)Engine=MyISAM AS
 SELECT
     `staging_categories_import`.`categories_id`,
     `staging_categories_import`.`parent_id`
@@ -322,12 +322,12 @@ JOIN `staging_categories_live`
 WHERE NOT `staging_categories_import`.`parent_id`
     = `staging_categories_live`.`parent_id`;
 DROP TABLE IF EXISTS `staging_categories_rename`;
-CREATE TEMPORARY TABLE `staging_categories_rename` (
+CREATE TABLE `staging_categories_rename` (
     `categories_id`          INT(11) NOT NULL,
     `categories_name`        VARCHAR(32) NOT NULL DEFAULT '',
     `categories_description` VARCHAR(255) NOT NULL DEFAULT '',
     PRIMARY KEY (`categories_id`)
-)Engine=MEMORY DEFAULT CHARSET=utf8mb4 AS
+)Engine=MyISAM DEFAULT CHARSET=utf8mb4 AS
 SELECT
     `staging_categories_import`.`categories_id` AS 'categories_id',
     LEFT(`staging_categories_import`.`categories_description`,32) AS 'categories_name',
@@ -341,11 +341,11 @@ WHERE NOT
         = `staging_categories_import`.`categories_description` AND
     `staging_categories_live`.`last_modified` IS NULL;
 DROP TABLE IF EXISTS `staging_categories_status`;
-CREATE TEMPORARY TABLE `staging_categories_status` (
+CREATE TABLE `staging_categories_status` (
     `categories_id`     INT(11) NOT NULL,
     `categories_status` TINYINT(1) NOT NULL DEFAULT 1,
     PRIMARY KEY (`categories_id`)
-)Engine=MEMORY AS
+)Engine=MyISAM AS
 SELECT
     `staging_categories_import`.`categories_id`,
     `staging_categories_import`.`categories_status`
@@ -652,7 +652,7 @@ WHERE `categories_id` IN (29,33,250,278,524,421,6,14,124,396,619);
 
 -- Import product data
 DROP TABLE IF EXISTS `staging_products_live`;
-CREATE TEMPORARY TABLE `staging_products_live` (
+CREATE TABLE `staging_products_live` (
     `products_id`             INT(11) NOT NULL,
     `products_model`          VARCHAR(32) DEFAULT NULL,
     `products_image`          VARCHAR(255) DEFAULT NULL,
@@ -708,18 +708,18 @@ WHERE
         `language_id` IS NULL
     ); 
 DROP TABLE IF EXISTS `staging_products_id`;
-CREATE TEMPORARY TABLE `staging_products_id` (
+CREATE TABLE `staging_products_id` (
     `products_id`    INT(11) NOT NULL AUTO_INCREMENT,
     `products_model` VARCHAR(32) NOT NULL DEFAULT '',
     PRIMARY KEY (`products_id`),
     UNIQUE (`products_model`)
-)Engine=MEMORY DEFAULT CHARSET=utf8mb4 AS
+)Engine=MyISAM DEFAULT CHARSET=utf8mb4 AS
 SELECT
     `products_id`,
     `products_model`
 FROM `staging_products_live`;
 DROP TABLE IF EXISTS `staging_products_complete_ag`;
-CREATE TEMPORARY TABLE `staging_products_complete_ag` (
+CREATE TABLE `staging_products_complete_ag` (
     `prod_code`  VARCHAR(32) NOT NULL DEFAULT '',
     `prod_desc`  VARCHAR(255) NOT NULL DEFAULT '',
     `narrative`  TEXT DEFAULT NULL,
@@ -740,7 +740,7 @@ INTO TABLE `staging_products_complete_ag`
     LINES TERMINATED BY '\n'
     IGNORE 1 LINES;
 DROP TABLE IF EXISTS `staging_products_stockinfo_ag`;
-CREATE TEMPORARY TABLE `staging_products_stockinfo_ag` (
+CREATE TABLE `staging_products_stockinfo_ag` (
     `prod_code`  VARCHAR(32) NOT NULL DEFAULT '',
     `prod_desc`  VARCHAR(255) NOT NULL DEFAULT '',
     `units_qty`  FLOAT NOT NULL DEFAULT 0,
@@ -760,7 +760,7 @@ INTO TABLE `staging_products_stockinfo_ag`
     LINES TERMINATED BY '\n'
     IGNORE 1 LINES;
 DROP TABLE IF EXISTS `staging_products_description_ag`;
-CREATE TEMPORARY TABLE `staging_products_description_ag` (
+CREATE TABLE `staging_products_description_ag` (
     `prod_code`  VARCHAR(32) NOT NULL DEFAULT '',
     `narrative`  TEXT DEFAULT NULL,
     INDEX (`prod_code`)
@@ -773,7 +773,7 @@ INTO TABLE `staging_products_description_ag`
     LINES TERMINATED BY '\n'
     IGNORE 1 LINES;
 DROP TABLE IF EXISTS `staging_products_import`;
-CREATE TEMPORARY TABLE `staging_products_import` (
+CREATE TABLE `staging_products_import` (
     `products_id`             INT(11) DEFAULT NULL,
     `products_model`          VARCHAR(32) DEFAULT NULL,
     `products_image`          VARCHAR(255) DEFAULT NULL,
@@ -793,7 +793,7 @@ CREATE TEMPORARY TABLE `staging_products_import` (
     KEY `idx_staging_products_status_import` (`products_status`),
     KEY `idx_staging_products_date_added_import` (`products_date_added`),
     KEY `idx_staging_master_categories_id_import` (`master_categories_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4;
+)Engine=MyISAM DEFAULT CHARSET=utf8mb4;
 INSERT INTO `staging_products_import` (
     `products_model`,
     `products_image`,
@@ -907,7 +907,7 @@ SET
     `staging_products_import`.`products_description`
         = `staging_products_description_ag`.`narrative`;
 DROP TABLE IF EXISTS `staging_products_new`;
-CREATE TEMPORARY TABLE `staging_products_new` (
+CREATE TABLE `staging_products_new` (
     `products_id`             INT(11) DEFAULT NULL,
     `products_model`          VARCHAR(32) DEFAULT NULL,
     `products_image`          VARCHAR(255) DEFAULT NULL,
@@ -960,9 +960,9 @@ JOIN `staging_products_live`
 SET `staging_products_import`.`products_id`
     = `staging_products_live`.`products_id`;
 DROP TABLE IF EXISTS `staging_products_dropped`;
-CREATE TEMPORARY TABLE `staging_products_dropped` (
+CREATE TABLE `staging_products_dropped` (
     `products_id`  INT(11) NOT NULL
-)Engine=MEMORY AS
+)Engine=MyISAM AS
 SELECT
     `staging_products_live`.`products_id`
 FROM `staging_products_live`
@@ -973,13 +973,13 @@ WHERE
     `staging_products_import`.`products_model` IS NULL AND
     `staging_products_live`.`products_status`=1;
 DROP TABLE IF EXISTS `staging_products_vitals`;
-CREATE TEMPORARY TABLE `staging_products_vitals` (
+CREATE TABLE `staging_products_vitals` (
     `products_id`           INT(11) DEFAULT NULL,
     `products_model`        VARCHAR(32) NOT NULL DEFAULT '',
     `products_quantity`     FLOAT DEFAULT NULL,
     `products_weight`       FLOAT DEFAULT NULL,
     `products_price`        DECIMAL(15,4) DEFAULT NULL
-)Engine=MEMORY DEFAULT CHARSET=utf8mb4 AS
+)Engine=MyISAM DEFAULT CHARSET=utf8mb4 AS
 SELECT
     `staging_products_import`.`products_id`,
     `staging_products_import`.`products_model`,
@@ -1007,9 +1007,9 @@ WHERE
     NOT `staging_products_import`.`products_quantity`
         = `staging_products_live`.`products_quantity`;
 DROP TABLE IF EXISTS `staging_products_inactive`;
-CREATE TEMPORARY TABLE `staging_products_inactive` (
+CREATE TABLE `staging_products_inactive` (
     `products_id` INT(11) NOT NULL
-)Engine=MEMORY;
+)Engine=MyISAM;
 INSERT IGNORE INTO `staging_products_inactive` (
     `products_id`
 )
@@ -1032,9 +1032,9 @@ SELECT
     `products_id`
 FROM `staging_products_dropped`;
 DROP TABLE IF EXISTS `staging_products_active`;
-CREATE TEMPORARY TABLE `staging_products_active` (
+CREATE TABLE `staging_products_active` (
     `products_id` INT(11) NOT NULL
-)Engine=MEMORY;
+)Engine=MyISAM;
 INSERT INTO `staging_products_active` (
     `products_id`
 )
@@ -1059,7 +1059,7 @@ WHERE
     `staging_products_import`.`products_name`=`staging_products_live`.`products_name` AND
     `staging_products_import`.`products_description`=`staging_products_live`.`products_description`;
 DROP TABLE IF EXISTS `staging_products_info`;
-CREATE TEMPORARY TABLE `staging_products_info` (
+CREATE TABLE `staging_products_info` (
     `products_id`        INT(11) NOT NULL,
     `products_label`     VARCHAR(64) DEFAULT NULL,
     `products_title`     VARCHAR(255) DEFAULT NULL,
@@ -1390,7 +1390,7 @@ FROM `staging_products_new`;
 
 -- Import product-category links
 DROP TABLE IF EXISTS `staging_placement_live`;
-CREATE TEMPORARY TABLE `staging_placement_live` (
+CREATE TABLE `staging_placement_live` (
     `products_id`    INT(11) NOT NULL,
     `categories_id`  INT(11) NOT NULL,
     `products_model` VARCHAR(32) NOT NULL,
@@ -1398,7 +1398,7 @@ CREATE TEMPORARY TABLE `staging_placement_live` (
     UNIQUE (`products_model`,`categories_id`),
     INDEX (`products_id`),
     INDEX (`products_model`)
-)Engine=MEMORY DEFAULT CHARSET=utf8mb4 AS
+)Engine=MyISAM DEFAULT CHARSET=utf8mb4 AS
 SELECT
     `products_to_categories`.`products_id` AS 'products_id',
     `products_to_categories`.`categories_id` AS 'categories_id',
@@ -1412,11 +1412,11 @@ WHERE
     `products_to_categories`.`products_id` < @INCREMENT_BASE
 ORDER BY `products_model`,`categories_id`;
 DROP TABLE IF EXISTS `staging_placement_ag`;
-CREATE TEMPORARY TABLE `staging_placement_ag` (
+CREATE TABLE `staging_placement_ag` (
     `prod_code` VARCHAR(32) NOT NULL,
     `dept_code` INT(11) NOT NULL,
     KEY (`prod_code`)
-)Engine=MEMORY DEFAULT CHARSET=utf8mb4;
+)Engine=MyISAM DEFAULT CHARSET=utf8mb4;
 LOAD DATA LOCAL
     INFILE 'db_import-product-department.csv'
 INTO TABLE `staging_placement_ag`
@@ -1425,13 +1425,13 @@ INTO TABLE `staging_placement_ag`
     LINES TERMINATED BY '\n'
     IGNORE 1 LINES;
 DROP TABLE IF EXISTS `staging_placement_import`;
-CREATE TEMPORARY TABLE `staging_placement_import` (
+CREATE TABLE `staging_placement_import` (
     `products_model` VARCHAR(32) NOT NULL,
     `products_id`    INT(11) DEFAULT NULL,
     `categories_id`  INT(11) NOT NULL,
     PRIMARY KEY (`products_model`,`categories_id`),
     UNIQUE (`categories_id`,`products_id`)
-) ENGINE=MEMORY DEFAULT CHARSET=utf8mb4;
+)Engine=MyISAM DEFAULT CHARSET=utf8mb4;
 INSERT IGNORE INTO `staging_placement_import` (
     `products_model`,
     `categories_id`
@@ -1443,14 +1443,14 @@ JOIN `categories`
     ON `staging_placement_ag`.`dept_code`
         = `categories`.`categories_id`;
 DROP TABLE IF EXISTS `staging_placement_new`;
-CREATE TEMPORARY TABLE `staging_placement_new` (
+CREATE TABLE `staging_placement_new` (
     `products_model` VARCHAR(32) NOT NULL,
     `categories_id`  INT(11) NOT NULL,
     `products_id`    INT(11) DEFAULT NULL,
     PRIMARY KEY (`products_model`,`categories_id`),
     INDEX (`products_model`),
     UNIQUE (`categories_id`,`products_id`)
-)Engine=MEMORY DEFAULT CHARSET=utf8mb4;
+)Engine=MyISAM DEFAULT CHARSET=utf8mb4;
 INSERT IGNORE INTO `staging_placement_new` (
     `products_model`,
     `categories_id`,
@@ -1476,11 +1476,11 @@ SET `staging_placement_import`.`products_id`
     = `staging_products_live`.`products_id`
 WHERE `staging_products_live`.`products_model` IS NOT NULL;
 DROP TABLE IF EXISTS `staging_placement_dropped`;
-CREATE TEMPORARY TABLE `staging_placement_dropped` (
+CREATE TABLE `staging_placement_dropped` (
     `products_id`   INT(11) NOT NULL,
     `categories_id` INT(11) NOT NULL,
     INDEX (`products_id`)
-)Engine=MEMORY;
+)Engine=MyISAM;
 INSERT IGNORE INTO `staging_placement_dropped` (
     `products_id`,
     `categories_id`
@@ -1503,11 +1503,11 @@ WHERE
         WHERE `issue`='Non-leaf category placement'
     );
 DROP TABLE IF EXISTS `staging_placement_added`;
-CREATE TEMPORARY TABLE `staging_placement_added` (
+CREATE TABLE `staging_placement_added` (
     `products_id`   INT(11) NOT NULL,
     `categories_id` INT(11) NOT NULL,
     INDEX (`products_id`)
-)Engine=MEMORY;
+)Engine=MyISAM;
 INSERT IGNORE INTO `staging_placement_added` (
     `products_id`,
     `categories_id`

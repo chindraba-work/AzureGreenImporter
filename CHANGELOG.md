@@ -2,6 +2,10 @@
 
 ## Changelog
 
+### v2.1.0
+
+- Make processing tables in the 'local' database persistent
+
 ### v2.0.0
 
 - Completely replaced the system for reasons given in the README file
