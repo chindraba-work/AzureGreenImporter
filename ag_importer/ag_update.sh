@@ -91,6 +91,11 @@
 #       │    │    └──  <files>  have been detected as new copied into  #
 #       │    │                  pics_current                           #
 #       │    │                                                         #
+#       │    │    [$dir_scrape]                                        #
+#       │    ├──  scrape        Images scraped from the website which  #
+#       │    │    └──  <files>  have been sorted and copied into the   #
+#       │    │                  pics_current folder                    #
+#       │    │                                                         #
 #       │    │    [$dir_sorted]                                        #
 #       │    └──  sorted        Images sorted into their proper place  #
 #       │         └──  <files>  with duplicates removed and the        #
@@ -114,7 +119,7 @@ DB_ADD_DATE='2018-10-31 21:13:08'
 DB_NEW_DATE="$(date --utc +%F%_9T)"
 
 # Database access information 
-WORK_DB_HOST='localhost'
+WORK_DB_HOST=''
 WORK_DB_NAME=''
 WORK_DB_USER=''
 WORK_DB_PASS=''
@@ -125,8 +130,9 @@ NOW_DATE="$(date --utc +%Y.%m.%d)"
 # Find the timestamp for database patch file names
 PATCH_DATE="$(date --utc +%Y.%m.%d-%H.%M.%s)"
 
-# The web resource to download from
+# The web resources to download from
 SOURCE_URL="http://www.azuregreenw.com/filesForDownload"
+IMAGE_URL="http://www.azuregreen.net/Images"
 
 # The zip files of images
 ARCHIVE_LIST="A B C D EB EP ES F G H I J L M N O R S U V W"
@@ -322,6 +328,28 @@ FIXER
     done;
 }
 
+function get_image_list {
+    touch "$dir_root/img_list"
+    image_query='SELECT DISTINCT `products_image` FROM `products` ORDER BY `products_image`;'
+    mysql -h $WORK_DB_HOST -u $WORK_DB_USER -p$WORK_DB_PASS -s -D $WORK_DB_NAME -e "$image_query" >"$dir_root/img_list"
+}
+
+function get_images {
+    rm -f "$dir_root/img_missing" 2>/dev/null
+    echo "Searching for missing images."
+    while read model_path; do
+        model_file="${model_path##*/}"
+        model_dir="${model_path%/$model_file}"
+        model_ext="${model_file##*.}"
+        model_name="${model_file%.$model_ext}"
+        model="${model_name^^}"
+        [[ -s "$dir_pics/$model_path" ]] || \
+        [[ -s "$dir_scrape/$model_path" ]] || \
+        retrieve_image $model $model_dir $model_path || \
+            echo "$model_path" >> "$dir_root/img_missing"
+    done < "$dir_root/img_list"
+}
+
 function keep_larger {
     # Keep the larger of the two files: one currently saved and one under examination
     # Allows for the possibility that the one being tested has a suffix for its size
@@ -361,6 +389,29 @@ function retrieve_file {
     # Retrieves a file from AzureGreen, if it is newer than the local copy
     target="$1"
     wget --directory-prefix=$dir_test --timestamping --no-if-modified-since $target
+}
+
+function retrieve_image {
+    # Tries to retrieve the named file, with various suffixes, saving the first one found
+    target_base="$1" && target_dir="$2" && target_path="$3" || return 1
+    target="${target_base}_Z.jpg"
+    retrieve_new_image $target $target_dir $target_path && return 0
+    target="${target_base}_Z.jpeg"
+    retrieve_new_image $target $target_dir $target_path && return 0
+    target="${target_base}.jpg"
+    retrieve_new_image $target $target_dir $target_path && return 0
+    target="${target_base}.jpeg"
+    retrieve_new_image $target $target_dir $target_path && return 0
+    return 1;
+}
+
+function retrieve_new_image {
+    # Retrieves an image file from AzureGreen, if it is newer than the local copy
+    target="$1" && target_dir=$2 && image_path="$3" || return 1
+    wget --directory-prefix="$dir_scrape" --timestamping --no-if-modified-since $IMAGE_URL/$target >/dev/null 2>&1 && {
+        mkdir -p "$dir_scrape/$target_dir"
+        mv "$dir_scrape/$target" "$dir_scrape/$image_path";
+    }
 }
 
 function save_imports {
@@ -437,6 +488,9 @@ function setup {
     # Temporary directory to hold images detected as new (md5sum)
     dir_found="$dir_root/working/pics_next/found"
     mkdir -p "$dir_found"
+    # Temporary directory to scaped images
+    dir_scrape="$dir_root/working/pics_next/scrape"
+    mkdir -p "$dir_scrape"
 }
 
 function sort_image {
@@ -490,6 +544,16 @@ function store_new_images {
     rm -rf "$dir_found"
 }
 
+function store_scraped_images {
+    dir_is_empty $dir_scrape && return
+    cp -rpT "$dir_scrape" "$dir_pics"
+    pushd "$dir_scrape" > /dev/null
+    [ $pre_loaded ] && arc_date="$pre_load_id" || arc_date="$NOW_DATE"
+    tar --create --recursive --gzip --no-acls --no-selinux --no-xattrs --file="$dir_stores/new_images_${arc_date}s.tar.gz" *
+    popd >/dev/null
+    rm -rf "$dir_scrape"
+}
+
 function update_database {
     for import_file in $PRODUCT_DATA_LIST; do
         check_name="db_import-${import_file,,}.csv"
@@ -515,14 +579,27 @@ function main {
         || setup "$PWD"
     [[ -n $2 ]] && \
         pre_fetch $2
+    [[ -n $3 ]] && \
+        DB_ADD_DATE="${3} 21:13:08"
     freshen_product_data 
     freshen_spreadsheets
     freshen_images
     save_sources
     save_imports && update_database
+    get_image_list
+    get_images
+    store_scraped_images 
+    [[ -s "$dir_root/img_missing" ]] && {
+        echo ""
+        echo "Unable to locate the following images:"
+        echo ""
+        cat "$dir_root/img_missing";
+    }
+    rm -r "$dir_root/img_missing" 2>/dev/null
+    rm -r "$dir_root/img_list" 2>/dev/null
     rm -rf "$dir_root/working"
 }
 
-echo "... Processing date: '$2' files into '$1' directory"
+[[ -n $2 ]] && echo "... Processing date: '$2' files into '$1' directory"
 main $1 $2
 

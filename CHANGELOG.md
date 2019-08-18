@@ -2,6 +2,10 @@
 
 ## Changelog
 
+### v2.1.1
+
+- Add process for scraping the AzureGreen website for images they have not yet supplied
+
 ### v2.1.0
 
 - Make processing tables in the 'local' database persistent
