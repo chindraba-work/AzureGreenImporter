@@ -5,6 +5,7 @@ Changelog
 v2.1.0
 
    * Make processing tables in the 'local' database persistent
+   * Changed key in the staging_categories_new table
 
 v2.0.0
 
