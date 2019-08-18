@@ -286,8 +286,7 @@ CREATE TABLE `staging_categories_new` (
     `categories_description`  VARCHAR(255),
     `categories_status`       TINYINT(1) NOT NULL DEFAULT 1,
     PRIMARY KEY (`categories_id`),
-    KEY `idx_staging_categories_name_new` (`categories_name`),
-    UNIQUE `idx_staging_categories_by_parent_new` (`parent_id`,`categories_name`)
+    KEY `idx_staging_categories_name_new` (`categories_name`)
 )Engine=MyISAM DEFAULT CHARSET=utf8mb4 AS
 SELECT
     `staging_categories_import`.`categories_id` AS 'categories_id',
