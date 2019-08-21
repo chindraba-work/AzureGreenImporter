@@ -946,7 +946,9 @@ LEFT OUTER JOIN `staging_products_live`
     ON `staging_products_import`.`products_model`
         = `staging_products_live`.`products_model`
 WHERE `staging_products_live`.`products_model` IS NULL;
-
+UPDATE `staging_products_new`
+SET `products_status`=0
+WHERE NOT `products_quantity` > 0;
 DELETE `staging_products_import`
 FROM `staging_products_import`
 JOIN `staging_products_new`

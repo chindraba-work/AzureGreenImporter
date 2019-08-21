@@ -2,6 +2,10 @@
 
 ## Changelog
 
+### v2.1.2
+
+- Fix new products with no stock and active status
+
 ### v2.1.1
 
 - Add process for scraping the AzureGreen website for images they have not yet supplied
