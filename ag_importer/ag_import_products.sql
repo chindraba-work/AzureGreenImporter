@@ -221,6 +221,12 @@ INTO TABLE `staging_products_complete_ag`
     OPTIONALLY ENCLOSED BY '"'
     LINES TERMINATED BY '\n'
     IGNORE 1 LINES;
+UPDATE `staging_products_complete_ag`
+SET `prod_image` = REPLACE(`prod_image`, ' ', '');
+UPDATE `staging_products_complete_ag`
+SET `prod_image` = REPLACE(`prod_image`, '.jpeg', '.jpg');
+UPDATE `staging_products_complete_ag`
+SET `prod_image` = REPLACE(`prod_image`, '.tiff', '.tif');
 DROP TABLE IF EXISTS `staging_products_stockinfo_ag`;
 CREATE TABLE `staging_products_stockinfo_ag` (
     `prod_code`  VARCHAR(32) NOT NULL DEFAULT '',
@@ -241,6 +247,12 @@ INTO TABLE `staging_products_stockinfo_ag`
     OPTIONALLY ENCLOSED BY '"'
     LINES TERMINATED BY '\n'
     IGNORE 1 LINES;
+UPDATE `staging_products_stockinfo_ag`
+SET `prod_image` = REPLACE(`prod_image`, ' ', '');
+UPDATE `staging_products_stockinfo_ag`
+SET `prod_image` = REPLACE(`prod_image`, '.jpeg', '.jpg');
+UPDATE `staging_products_stockinfo_ag`
+SET `prod_image` = REPLACE(`prod_image`, '.tiff', '.tif');
 DROP TABLE IF EXISTS `staging_products_description_ag`;
 CREATE TABLE `staging_products_description_ag` (
     `prod_code`  VARCHAR(32) NOT NULL DEFAULT '',
