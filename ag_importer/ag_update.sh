@@ -566,10 +566,17 @@ function update_database {
     [ $pre_loaded ] || DB_ADD_DATE="$DB_NEW_DATE"
     echo '"'$DB_ADD_DATE'","'$DB_NEW_DATE'"' > db_import-control_dates.csv
     generate_categories_sql 
-    mysql -s -h $WORK_DB_HOST -u $WORK_DB_USER -p$WORK_DB_PASS -D $WORK_DB_NAME < "$code_path/ag_import.sql" > "$dir_stores/inventory_patch-$PATCH_DATE.sql"
-    gzip --keep "$dir_stores/inventory_patch-$PATCH_DATE.sql"
+    echo " ... Categories"
+    mysql -s -h $WORK_DB_HOST -u $WORK_DB_USER -p$WORK_DB_PASS -D $WORK_DB_NAME < "$code_path/ag_import_departments.sql" > "$dir_active/inventory_patch-departments.sql"
+    echo " ... Products"
+    mysql -s -h $WORK_DB_HOST -u $WORK_DB_USER -p$WORK_DB_PASS -D $WORK_DB_NAME < "$code_path/ag_import_products.sql" > "$dir_active/inventory_patch-products.sql"
+    echo " ... Product placements"
+    mysql -s -h $WORK_DB_HOST -u $WORK_DB_USER -p$WORK_DB_PASS -D $WORK_DB_NAME < "$code_path/ag_import_placements.sql" > "$dir_active/inventory_patch-placements.sql"
     popd > /dev/null
-    cp -p $dir_stores/inventory_patch-$PATCH_DATE.sql* "$dir_data"
+    cat "$dir_active/inventory_patch-{departments,products,placements}.sql" "$dir_active/inventory_patch-combined.sql"
+    cp "$dir_active/inventory_patch-combined.sql" "$dir_stores/inventory_patch-combined-$PATCH_DATE.sql"
+    gzip "$dir_stores/inventory_patch-combined-$PATCH_DATE.sql"
+    cp -p $dir_stores/inventory_patch-combined-$PATCH_DATE.sql.gz "$dir_active/current_patch-combined.sql.gz"
     echo "Importing of data complete."
 }
 
