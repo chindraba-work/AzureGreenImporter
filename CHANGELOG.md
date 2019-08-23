@@ -2,6 +2,13 @@
 
 ## Changelog
 
+### v2.1.3
+
+- Handle image filenames with spaces in the image archives
+- Handle image names in the `products` table with spaces in them
+- Force the JPEG files to always use `.jpg` and force TIFF image files
+  to be `.tif`
+
 ### v2.1.2
 
 - Fix new products with no stock and active status

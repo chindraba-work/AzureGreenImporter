@@ -305,6 +305,10 @@ function flatten_image_dir {
             mv "$pic_dir/$pic_name.jpeg" "$pic_dir/$pic_name.jpg"
             pic_ext="jpg"
         fi
+        if [[ "$pic_ext" == "tiff" ]]; then
+            mv "$pic_dir/$pic_name.tiff" "$pic_dir/$pic_name.tif"
+            pic_ext="tif"
+        fi
         sort_image "$pic_name" $pic_ext "$merge_suffix"
     done
     # Check into any subdirectories, apply the same process again
@@ -402,14 +406,27 @@ function retrieve_file {
 function retrieve_image {
     # Tries to retrieve the named file, with various suffixes, saving the first one found
     target_base="$1" && target_path="$2" || return 1
-    target_file="${target_base}_Z.jpg"
+    target_ext="${target_path##*.}"
+    target_file="${target_base}_Z.$target_ext"
     retrieve_new_image $target_file $target_path && return 0
-    target_file="${target_base}_Z.jpeg"
+    if [[ "$target_ext" == 'jpg' ]]; then
+        target_file="${target_base}_Z.jpeg"
+        retrieve_new_image $target_file $target_path && return 0
+    fi
+    if [[ "$target_ext" == 'tif' ]]; then
+        target_file="${target_base}_Z.tiff"
+        retrieve_new_image $target_file $target_path && return 0
+    fi
+    target_file="${target_base}.$target_ext"
     retrieve_new_image $target_file $target_path && return 0
-    target_file="${target_base}.jpg"
-    retrieve_new_image $target_file $target_path && return 0
-    target_file="${target_base}.jpeg"
-    retrieve_new_image $target_file $target_path && return 0
+    if [[ "$target_ext" == 'jpg' ]]; then
+        target_file="${target_base}.jpeg"
+        retrieve_new_image $target_file $target_path && return 0
+    fi
+    if [[ "$target_ext" == 'tif' ]]; then
+        target_file="${target_base}.tiff"
+        retrieve_new_image $target_file $target_path && return 0
+    fi
     return 1;
 }
 
