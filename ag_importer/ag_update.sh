@@ -291,11 +291,20 @@ function flatten_image_dir {
     # Remove Window thumbnail cache files
     find . -iname thumbs.db -delete
     # Process remaining files, hopefully all images
-    for pic_path in *; do
-        [[ -f $pic_path ]] || continue
+    for pic_spec in *; do
+        [[ -f $pic_spec ]] || continue
+        pic_path="$(echo -e "${pic_spec}"|tr -d '[:space:]')"
+        if ! [[ "$pic_path" == "$pic_spec" ]]; then
+            mv "$pic_spec" "$pic_path"
+        fi
+        pic_dir="${pic_path%/*}"
         pic_file="${pic_path##*/}"
         pic_ext="${pic_file##*.}"
         pic_name="${pic_file%.$pic_ext}"
+        if [[ "$pic_ext" == "jpeg" ]]; then
+            mv "$pic_dir/$pic_name.jpeg" "$pic_dir/$pic_name.jpg"
+            pic_ext="jpg"
+        fi
         sort_image "$pic_name" $pic_ext "$merge_suffix"
     done
     # Check into any subdirectories, apply the same process again
@@ -339,13 +348,12 @@ function get_images {
     echo "Searching for missing images."
     while read model_path; do
         model_file="${model_path##*/}"
-        model_dir="${model_path%/$model_file}"
         model_ext="${model_file##*.}"
         model_name="${model_file%.$model_ext}"
         model="${model_name^^}"
         [[ -s "$dir_pics/$model_path" ]] || \
         [[ -s "$dir_scrape/$model_path" ]] || \
-        retrieve_image $model $model_dir $model_path || \
+        retrieve_image $model $model_path || \
             echo "$model_path" >> "$dir_root/img_missing"
     done < "$dir_root/img_list"
 }
@@ -393,24 +401,25 @@ function retrieve_file {
 
 function retrieve_image {
     # Tries to retrieve the named file, with various suffixes, saving the first one found
-    target_base="$1" && target_dir="$2" && target_path="$3" || return 1
-    target="${target_base}_Z.jpg"
-    retrieve_new_image $target $target_dir $target_path && return 0
-    target="${target_base}_Z.jpeg"
-    retrieve_new_image $target $target_dir $target_path && return 0
-    target="${target_base}.jpg"
-    retrieve_new_image $target $target_dir $target_path && return 0
-    target="${target_base}.jpeg"
-    retrieve_new_image $target $target_dir $target_path && return 0
+    target_base="$1" && target_path="$2" || return 1
+    target_file="${target_base}_Z.jpg"
+    retrieve_new_image $target_file $target_path && return 0
+    target_file="${target_base}_Z.jpeg"
+    retrieve_new_image $target_file $target_path && return 0
+    target_file="${target_base}.jpg"
+    retrieve_new_image $target_file $target_path && return 0
+    target_file="${target_base}.jpeg"
+    retrieve_new_image $target_file $target_path && return 0
     return 1;
 }
 
 function retrieve_new_image {
     # Retrieves an image file from AzureGreen, if it is newer than the local copy
-    target="$1" && target_dir=$2 && image_path="$3" || return 1
-    wget --directory-prefix="$dir_scrape" --timestamping --no-if-modified-since $IMAGE_URL/$target >/dev/null 2>&1 && {
-        mkdir -p "$dir_scrape/$target_dir"
-        mv "$dir_scrape/$target" "$dir_scrape/$image_path";
+    target_file="$1" && image_path="$2" || return 1
+    wget --directory-prefix="$dir_scrape" --timestamping --no-if-modified-since $IMAGE_URL/$target_file >/dev/null 2>&1 && {
+        image_dir="${image_path%/*}"
+        mkdir -p "$dir_scrape/$image_dir"
+        mv "$dir_scrape/$target_file" "$dir_scrape/$image_path";
     }
 }
 
