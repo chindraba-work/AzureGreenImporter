@@ -126,13 +126,13 @@ WORK_DB_PASS=''
 # If WORK_DB_PASS is left blank, the password will be prompted from on the command line
 
 # Find the current date, for when creating a record of new downloads
-NOW_DATE="$(date --utc +%Y.%m.%d)"
+NOW_DATE="$(date --utc +%Y.%m.%d.%H.%M)"
 # Find the timestamp for database patch file names
 PATCH_DATE="$(date --utc +%Y.%m.%d-%H.%M.%s)"
 
 # The web resources to download from
 SOURCE_URL="http://www.azuregreenw.com/filesForDownload"
-IMAGE_URL="http://www.azuregreen.net/Images"
+IMAGE_URL="https://www.azuregreen.net/Images"
 
 # The zip files of images
 ARCHIVE_LIST="A B C D EB EP ES F G H I J L M N O R S U V W"
@@ -184,6 +184,7 @@ function extract_images {
     # only the largest files (presuming largest dimensioned version of the image)
     mkdir -p "$dir_extract"
     arc_name="$1"
+    echo -ne "\r  ...  $arc_name "
     unzip -LL -a -o -d $dir_extract "$dir_new/$arc_name.zip" >/dev/null
     # Attempt to merge the extracted files
     flatten_image_dir $dir_extract
@@ -224,7 +225,7 @@ function freshen {
     src_name="$1"
     uri_name="${src_name// /%20}"
     src_url="$2"
-    [ $pre_loaded ] || retrieve_file "$src_url/$uri_name"
+    [ $pre_loaded ] || retrieve_file "$dir_test" "$uri_name" "$src_url"
     [ -e "$dir_test/$src_name" ] || return 1 
     [ -e "$dir_active/$src_name" ] && {
         last_sum="$(md5sum "$dir_active/$src_name" | awk -e '{print $1 }')"
@@ -255,6 +256,7 @@ function freshen_images {
     for data_file in $ARCHIVE_LIST; do
       freshen "$data_file.zip" "$SOURCE_URL/imageZipFiles" && extract_images $data_file
     done
+    echo ''
     filter_new_images
     store_new_images 
     echo "Image archives processed."
@@ -357,8 +359,10 @@ function get_images {
         model="${model_name^^}"
         [[ -s "$dir_pics/$model_path" ]] || \
         [[ -s "$dir_scrape/$model_path" ]] || \
-        retrieve_image $model $model_path || \
-            echo "$model_path" >> "$dir_root/img_missing"
+        retrieve_image $model $model_path || {
+            echo "-- Missing"
+            echo "$model_path" >> "$dir_root/img_missing";
+        }
     done < "$dir_root/img_list"
 }
 
@@ -399,33 +403,42 @@ function pre_fetch {
 
 function retrieve_file {
     # Retrieves a file from AzureGreen, if it is newer than the local copy
-    target="$1"
-    wget --directory-prefix=$dir_test --timestamping --no-if-modified-since $target
+    # target="$1"
+    target_dir="$1"
+    target_file="$2"
+    target_url="$3"
+    if [ -s "$target_dir/$target_file" ]; then
+        curl -s -o "$target_dir/$target_file" -z "$target_dir/$target_file" "$target_url/$target_file"
+    else
+        curl -s -o "$target_dir/$target_file" "$target_url/$target_file"
+    fi
+    # wget --directory-prefix=$dir_test --timestamping --no-if-modified-since $target
 }
 
 function retrieve_image {
     # Tries to retrieve the named file, with various suffixes, saving the first one found
     target_base="$1" && target_path="$2" || return 1
+    echo -n " ... $target_base "
     target_ext="${target_path##*.}"
     target_file="${target_base}_Z.$target_ext"
-    retrieve_new_image $target_file $target_path && return 0
+    retrieve_new_image $target_file $target_path && { echo "-- Found"; return 0; }
     if [[ "$target_ext" == 'jpg' ]]; then
         target_file="${target_base}_Z.jpeg"
-        retrieve_new_image $target_file $target_path && return 0
+        retrieve_new_image $target_file $target_path && { echo "-- Found"; return 0; }
     fi
     if [[ "$target_ext" == 'tif' ]]; then
         target_file="${target_base}_Z.tiff"
-        retrieve_new_image $target_file $target_path && return 0
+        retrieve_new_image $target_file $target_path && { echo "-- Found"; return 0; }
     fi
     target_file="${target_base}.$target_ext"
-    retrieve_new_image $target_file $target_path && return 0
+    retrieve_new_image $target_file $target_path && { echo "-- Found"; return 0; }
     if [[ "$target_ext" == 'jpg' ]]; then
         target_file="${target_base}.jpeg"
-        retrieve_new_image $target_file $target_path && return 0
+        retrieve_new_image $target_file $target_path && { echo "-- Found"; return 0; }
     fi
     if [[ "$target_ext" == 'tif' ]]; then
         target_file="${target_base}.tiff"
-        retrieve_new_image $target_file $target_path && return 0
+        retrieve_new_image $target_file $target_path && { echo "-- Found"; return 0; }
     fi
     return 1;
 }
@@ -433,7 +446,8 @@ function retrieve_image {
 function retrieve_new_image {
     # Retrieves an image file from AzureGreen, if it is newer than the local copy
     target_file="$1" && image_path="$2" || return 1
-    wget --directory-prefix="$dir_scrape" --timestamping --no-if-modified-since $IMAGE_URL/$target_file >/dev/null 2>&1 && {
+    # wget --directory-prefix="$dir_scrape" --timestamping --no-if-modified-since $IMAGE_URL/$target_file >/dev/null 2>&1 && {
+    retrieve_file "$dir_scrape" "$target_file" "$IMAGE_URL" && {
         image_dir="${image_path%/*}"
         mkdir -p "$dir_scrape/$image_dir"
         mv "$dir_scrape/$target_file" "$dir_scrape/$image_path";
@@ -564,7 +578,7 @@ function store_new_images {
     dir_is_empty $dir_found && return
     cp -rpT "$dir_found" "$dir_pics"
     pushd $dir_found > /dev/null
-    [ $pre_loaded ] && arc_date="$pre_load_id" || arc_date="$NOW_DATE"
+    [ $pre_loaded ] && arc_date="$pre_load_id.13.08" || arc_date="$NOW_DATE"
     tar --create --recursive --gzip --no-acls --no-selinux --no-xattrs --file="$dir_stores/new_images_$arc_date.tar.gz" *
     popd >/dev/null
     rm -rf "$dir_found"
@@ -574,7 +588,7 @@ function store_scraped_images {
     dir_is_empty $dir_scrape && return
     cp -rpT "$dir_scrape" "$dir_pics"
     pushd "$dir_scrape" > /dev/null
-    [ $pre_loaded ] && arc_date="$pre_load_id" || arc_date="$NOW_DATE"
+    [ $pre_loaded ] && arc_date="$pre_load_id.13.08" || arc_date="$NOW_DATE"
     tar --create --recursive --gzip --no-acls --no-selinux --no-xattrs --file="$dir_stores/new_images_${arc_date}s.tar.gz" *
     popd >/dev/null
     rm -rf "$dir_scrape"
@@ -593,13 +607,13 @@ function update_database {
     echo '"'$DB_ADD_DATE'","'$DB_NEW_DATE'"' > db_import-control_dates.csv
     generate_categories_sql 
     echo " ... Categories"
-    mysql -s -h $WORK_DB_HOST -u $WORK_DB_USER -p$WORK_DB_PASS -D $WORK_DB_NAME < "$code_path/ag_import_departments.sql" > "$dir_active/inventory_patch-departments.sql"
+    mysql -s -h $WORK_DB_HOST -u $WORK_DB_USER -p$WORK_DB_PASS -D $WORK_DB_NAME < "$code_path/ag_import_categories.sql" > "$dir_active/inventory_patch-departments.sql"
     echo " ... Products"
     mysql -s -h $WORK_DB_HOST -u $WORK_DB_USER -p$WORK_DB_PASS -D $WORK_DB_NAME < "$code_path/ag_import_products.sql" > "$dir_active/inventory_patch-products.sql"
     echo " ... Product placements"
     mysql -s -h $WORK_DB_HOST -u $WORK_DB_USER -p$WORK_DB_PASS -D $WORK_DB_NAME < "$code_path/ag_import_placements.sql" > "$dir_active/inventory_patch-placements.sql"
     popd > /dev/null
-    cat "$dir_active/inventory_patch-{departments,products,placements}.sql" "$dir_active/inventory_patch-combined.sql"
+    cat "$dir_active/inventory_patch-"{departments,products,placements}".sql">"$dir_active/inventory_patch-combined.sql"
     cp "$dir_active/inventory_patch-combined.sql" "$dir_stores/inventory_patch-combined-$PATCH_DATE.sql"
     gzip "$dir_stores/inventory_patch-combined-$PATCH_DATE.sql"
     cp -p $dir_stores/inventory_patch-combined-$PATCH_DATE.sql.gz "$dir_active/current_patch-combined.sql.gz"
