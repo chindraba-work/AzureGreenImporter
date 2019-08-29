@@ -2,6 +2,13 @@ AzureGreenImporter
 
 Changelog
 
+v2.1.4
+
+   * Add small amount of progress reporting, esp. in image archive work
+   * Switch to use of `curl` over `wget`
+   * Switch to `https` for images, as AzureGreen now supports it
+   * Expand granularity on image archive names
+
 v2.1.3
 
    * Handle image filenames with spaces in the image archives
