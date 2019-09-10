@@ -121,6 +121,22 @@ SELECT CONCAT(
 SELECT
 CONCAT('SET @AZUREGREEN_ID=',@AZUREGREEN_ID:=1,';');
 
+-- Set the categories_id for some control categories
+-- A category to place all new products into until they can be sorted out
+SELECT 
+CONCAT('SET @IMPORT_CATEGORY=',@IMPORT_CATEGORY:=`categories_id`,';')
+FROM `categories_description`
+WHERE
+    `language_id`=1 AND
+    `categories_name`='AzureGreen Imports';
+-- A category to place products into if a problem is found with the imported data
+SELECT 
+CONCAT('SET @ISSUE_CATEGORY=',@ISSUE_CATEGORY:=`categories_id`,';')
+FROM `categories_description`
+WHERE
+    `language_id`=1 AND
+    `categories_name`='AzureGreen Issues';
+
 -- Tables to hold discovered errors in the imported data
 CREATE TABLE IF NOT EXISTS `staging_products_errors` (
     `products_model` VARCHAR(32) NOT NULL DEFAULT '',
