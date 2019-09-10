@@ -115,6 +115,7 @@
 # Dates for the database items
 #  The base date for "pre-existing" products and categories when pre-loading
 DB_ADD_DATE='2018-10-31 21:13:08'
+[[ -n $RUN_DATE ]] && DB_ADD_DATE="$RUN_DATE 21:13:08"
 #  The date available, presumed to be now, changed when pre-loading
 DB_NEW_DATE="$(date --utc +%F%_9T)"
 
@@ -410,9 +411,9 @@ function retrieve_file {
     target_file="$2"
     target_url="$3"
     if [ -s "$target_dir/$target_file" ]; then
-        curl -s -o "$target_dir/$target_file" -z "$target_dir/$target_file" "$target_url/$target_file"
+        curl -s -R -o "$target_dir/$target_file" -z "$target_dir/$target_file" "$target_url/$target_file"
     else
-        curl -s -o "$target_dir/$target_file" "$target_url/$target_file"
+        curl -s -R -o "$target_dir/$target_file" "$target_url/$target_file"
     fi
     # wget --directory-prefix=$dir_test --timestamping --no-if-modified-since $target
 }
@@ -472,8 +473,15 @@ function save_sources {
     dir_is_empty $dir_new && return
     cp -fp "$dir_new"/* "$dir_active"
     [ $pre_loaded ] || {
-      mkdir -p "$dir_stores/$NOW_DATE"
-      cp -p "$dir_new"/* "$dir_stores/$NOW_DATE"
+      for new_file in "$dir_new"/*; do
+        file_time="$(stat -c %y $new_file)"
+        file_date="${file_time::10}"
+        dir_name="${file_date//-/.}"
+        mkdir -p "$dir_stores/$dir_name"
+        cp -p "$new_file" "$dir_stores/$dir_name"
+      done
+#      mkdir -p "$dir_stores/${NOW_DATE::10}"
+#      cp -p "$dir_new"/* "$dir_stores/${NOW_DATE::10}"
     }
     rm -rf "$dir_new"
     rm -rf "$dir_test"
