@@ -2,6 +2,16 @@
 
 ## Changelog
 
+### v2.2.0
+
+- Add use of environment variable to control 'date added' for historical imports
+- Add more feedback to the user during file processing
+- Restore file timestamping for downloads
+- Utilize the file timestamp when archiving downloads
+- Split database processing into phases for slower connections
+- Name change of generated SQL for importing to the live database
+- Name change for uploadable image archives
+
 ### v2.1.4
 
 - Add small amount of progress reporting, esp. in image archive work
