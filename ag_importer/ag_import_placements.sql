@@ -33,22 +33,26 @@
 -- Instructions: (see the ag_import_categories.sql file)
 
 -- Setup the work area:
+-- The remote system needs to be set to follow this limit, the local 
+-- tables actually have to NOT have the value set, as the values added
+-- need to be BELOW that limit 
+SET @INCREMENT_BASE=100001;
 
 -- Set the categories_id for some control categories
 -- A category to place all new products into until they can be sorted out
-SELECT 
-CONCAT('SET @IMPORT_CATEGORY=',@IMPORT_CATEGORY:=`categories_id`,';')
+SELECT `categories_id`
 FROM `categories_description`
 WHERE
     `language_id`=1 AND
-    `categories_name`='AzureGreen Imports';
+    `categories_name`='AzureGreen Imports'
+INTO @IMPORT_CATEGORY;
 -- A category to place products into if a problem is found with the imported data
-SELECT 
-CONCAT('SET @ISSUE_CATEGORY=',@ISSUE_CATEGORY:=`categories_id`,';')
+SELECT `categories_id`
 FROM `categories_description`
 WHERE
     `language_id`=1 AND
-    `categories_name`='AzureGreen Issues';
+    `categories_name`='AzureGreen Issues'
+INTO @ISSUE_CATEGORY;
 
 -- Tables to hold discovered errors in the imported data
 CREATE TABLE IF NOT EXISTS `staging_placement_errors` (
