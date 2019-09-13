@@ -81,12 +81,8 @@ INTO TABLE `staging_control_dates`
     FIELDS TERMINATED BY ',' 
     OPTIONALLY ENCLOSED BY '"' 
     LINES TERMINATED BY '\n';
-SELECT
-CONCAT('SET @SCRIPT_ADD_DATE="',@SCRIPT_ADD_DATE:=`add_date`,'";')
-FROM `staging_control_dates`;
-SELECT
-CONCAT('SET @SCRIPT_NEW_DATE="',@SCRIPT_NEW_DATE:=`new_date`,'";')
-FROM `staging_control_dates`;
+SELECT `add_date` FROM `staging_control_dates` INTO @SCRIPT_ADD_DATE;
+SELECT `new_date` FROM `staging_control_dates` INTO @SCRIPT_NEW_DATE;
 
 -- Set the AUTO_INCREMENT values for the category and product tables
 -- AzureGreen provides numeric values for categories and any new ones
@@ -115,19 +111,19 @@ SELECT CONCAT(
 
 -- Set the categories_id for some control categories
 -- A category to place all new products into until they can be sorted out
-SELECT 
-CONCAT('SET @IMPORT_CATEGORY=',@IMPORT_CATEGORY:=`categories_id`,';')
+SELECT `categories_id`
 FROM `categories_description`
 WHERE
     `language_id`=1 AND
-    `categories_name`='AzureGreen Imports';
+    `categories_name`='AzureGreen Imports'
+INTO @IMPORT_CATEGORY;
 -- A category to place products into if a problem is found with the imported data
-SELECT 
-CONCAT('SET @ISSUE_CATEGORY=',@ISSUE_CATEGORY:=`categories_id`,';')
+SELECT `categories_id`
 FROM `categories_description`
 WHERE
     `language_id`=1 AND
-    `categories_name`='AzureGreen Issues';
+    `categories_name`='AzureGreen Issues'
+INTO @ISSUE_CATEGORY;
 
 -- Tables to hold discovered errors in the imported data
 CREATE TABLE IF NOT EXISTS `staging_categories_errors` (
