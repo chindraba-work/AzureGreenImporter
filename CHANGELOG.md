@@ -2,6 +2,17 @@
 
 ## Changelog
 
+### v2.3.0
+
+- Enable the use of environment variables for the database access info
+- Move and rename the generated files for updating the live server
+- Update the README file for the new version
+
+### v2.2.1
+
+- Remove excess output to the import scripts
+- Restore missing setup section to placements script
+
 ### v2.2.0
 
 - Add use of environment variable to control 'date added' for historical imports

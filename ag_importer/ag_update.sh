@@ -45,8 +45,9 @@
 #  │                                                                   #
 #  │    [$dir_data]                                                    #
 #  ├──  data_current        The current versions of the cleaned and    #
-#  │    └──  <files>        imported CSV files                         #
-#  │                                                                   #
+#  │    └──  <files>        imported CSV files and the importable SQL  #
+#  │                        and image archives for uploading.          #
+#  │                                                                   #
 #  │    [$dir_orphan]                                                  #
 #  ├──  _orphan             Images from extracts which did not get     #
 #  │                        sorted into a directory or deleted, should #
@@ -120,11 +121,16 @@ DB_ADD_DATE='2018-10-31 21:13:08'
 DB_NEW_DATE="$(date --utc +%F%_9T)"
 
 # Database access information 
-WORK_DB_HOST=''
-WORK_DB_NAME=''
-WORK_DB_USER=''
-WORK_DB_PASS=''
-# If WORK_DB_PASS is left blank, the password will be prompted from on the command line
+default_db_host=''
+default_db_name=''
+default_db_user=''
+default_db_pass=''
+
+AGIMPORT_DB_HOST="${AGIMPORT_DB_HOST-$default_db_host}"
+AGIMPORT_DB_NAME="${AGIMPORT_DB_NAME:-$default_db_name}"
+AGIMPORT_DB_USER="${AGIMPORT_DB_USER:-$default_db_user}"
+AGIMPORT_DB_PASS="${AGIMPORT_DB_PASS-$default_db_pass}"
+# If AGIMPORT_DB_PASS is left blank, the password will be prompted from on the command line
 
 # Find the current date, for when creating a record of new downloads
 NOW_DATE="$(date --utc +%Y.%m.%d.%H.%M)"
@@ -350,7 +356,7 @@ FIXER
 function get_image_list {
     touch "$dir_root/img_list"
     image_query='SELECT DISTINCT `products_image` FROM `products` ORDER BY `products_image`;'
-    mysql -h $WORK_DB_HOST -u $WORK_DB_USER -p$WORK_DB_PASS -s -D $WORK_DB_NAME -e "$image_query" >"$dir_root/img_list"
+    mysql -h $AGIMPORT_DB_HOST -u $AGIMPORT_DB_USER -p$AGIMPORT_DB_PASS -s -D $AGIMPORT_DB_NAME -e "$image_query" >"$dir_root/img_list"
 }
 
 function get_images {
@@ -399,7 +405,10 @@ function pre_fetch {
     # The date format will also be used when saving active downloads
     # and image upload archives (with a time-stamp affixed).
     src_dir="$1";
-    [[ -d "$dir_stores/$src_dir/" ]] || return
+    [[ -d "$dir_stores/$src_dir/" ]] || {
+        printf "Directory '%s' not found. Aborting! \n" $dir_stores/$src_dir 
+        exit
+    }
     cp -rpT "$dir_stores/$src_dir" "$dir_test"
     pre_load_id="$src_dir"
     pre_loaded=0;
@@ -591,6 +600,7 @@ function store_new_images {
     pushd $dir_found > /dev/null
     [ $pre_loaded ] && arc_date="$pre_load_id.13.08" || arc_date="$NOW_DATE"
     tar --create --recursive --gzip --no-acls --no-selinux --no-xattrs --file="$dir_stores/new_images_$arc_date.tar.gz" *
+    cp "$dir_stores/new_images_$arc_date.tar.gz"
     popd >/dev/null
     rm -rf "$dir_found"
 }
@@ -600,7 +610,8 @@ function store_scraped_images {
     cp -rpT "$dir_scrape" "$dir_pics"
     pushd "$dir_scrape" > /dev/null
     [ $pre_loaded ] && arc_date="$pre_load_id.13.08" || arc_date="$NOW_DATE"
-    tar --create --recursive --gzip --no-acls --no-selinux --no-xattrs --file="$dir_stores/new_images_${arc_date}s.tar.gz" *
+    tar --create --recursive --gzip --no-acls --no-selinux --no-xattrs --file="$dir_stores/found_images_${arc_date}.tar.gz" *
+    cp "$dir_stores/found_images_${arc_date}.tar.gz" "$dir_data/found_images.tar.gz"
     popd >/dev/null
     rm -rf "$dir_scrape"
 }
@@ -618,16 +629,16 @@ function update_database {
     echo '"'$DB_ADD_DATE'","'$DB_NEW_DATE'"' > db_import-control_dates.csv
     generate_categories_sql 
     printf " ... Categories\n"
-    mysql -s -h $WORK_DB_HOST -u $WORK_DB_USER -p$WORK_DB_PASS -D $WORK_DB_NAME < "$code_path/ag_import_categories.sql" > "$dir_active/inventory_patch-departments.sql"
+    mysql -s -h $AGIMPORT_DB_HOST -u $AGIMPORT_DB_USER -p$AGIMPORT_DB_PASS -D $AGIMPORT_DB_NAME < "$code_path/ag_import_categories.sql" > "$dir_data/catalog_patch-departments.sql"
     printf " ... Products\n"
-    mysql -s -h $WORK_DB_HOST -u $WORK_DB_USER -p$WORK_DB_PASS -D $WORK_DB_NAME < "$code_path/ag_import_products.sql" > "$dir_active/inventory_patch-products.sql"
+    mysql -s -h $AGIMPORT_DB_HOST -u $AGIMPORT_DB_USER -p$AGIMPORT_DB_PASS -D $AGIMPORT_DB_NAME < "$code_path/ag_import_products.sql" > "$dir_data/catalog_patch-products.sql"
     printf " ... Product placements\n"
-    mysql -s -h $WORK_DB_HOST -u $WORK_DB_USER -p$WORK_DB_PASS -D $WORK_DB_NAME < "$code_path/ag_import_placements.sql" > "$dir_active/inventory_patch-placements.sql"
+    mysql -s -h $AGIMPORT_DB_HOST -u $AGIMPORT_DB_USER -p$AGIMPORT_DB_PASS -D $AGIMPORT_DB_NAME < "$code_path/ag_import_placements.sql" > "$dir_data/catalog_patch-placements.sql"
     popd > /dev/null
-    cat "$dir_active/inventory_patch-"{departments,products,placements}".sql">"$dir_active/inventory_patch-combined.sql"
-    cp "$dir_active/inventory_patch-combined.sql" "$dir_stores/inventory_patch-combined-$PATCH_DATE.sql"
-    gzip "$dir_stores/inventory_patch-combined-$PATCH_DATE.sql"
-    cp -p $dir_stores/inventory_patch-combined-$PATCH_DATE.sql.gz "$dir_active/current_patch-combined.sql.gz"
+    cat "$dir_data/catalog_patch-"{departments,products,placements}".sql">"$dir_data/catalog_patch-combined.sql"
+    cp "$dir_data/catalog_patch-combined.sql" "$dir_stores/catalog_patch-combined-$PATCH_DATE.sql"
+    gzip "$dir_stores/catalog_patch-combined-$PATCH_DATE.sql"
+    cp -p $dir_stores/catalog_patch-combined-$PATCH_DATE.sql.gz "$dir_data/catalog_patch-combined.sql.gz"
     printf "Importing of data complete.\n"
 }
 
