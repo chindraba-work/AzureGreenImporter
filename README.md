@@ -8,6 +8,7 @@
 - [Usage](#usage)
 - [Version Numbers](#version-numbers)
 - [Copyright and License](#copyright-and-license)
+- [Notice](#notice)
 
 
 ## Description
@@ -103,7 +104,7 @@ Version numbers take the form `X.Y.Z` where `X` is the major version, `Y` is the
 
 [TOP](#contents)
 
-# Copyright and License
+## Copyright and License
 
 ```
     AzureGreenImporter: Import AzureGreen data into a Zen-Cart store   
@@ -139,7 +140,7 @@ Version numbers take the form `X.Y.Z` where `X` is the major version, `Y` is the
 
 ---
 
-# NOTICE:
+## NOTICE:
 
 ### The system has been completely changed between v1 and v2 and the two versions are incompatible in all ways.
 
