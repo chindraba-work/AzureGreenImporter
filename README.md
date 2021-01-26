@@ -140,7 +140,7 @@ Version numbers take the form `X.Y.Z` where `X` is the major version, `Y` is the
 
 ---
 
-## NOTICE:
+## NOTICE
 
 ### The system has been completely changed between v1 and v2 and the two versions are incompatible in all ways.
 
